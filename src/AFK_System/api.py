@@ -67,14 +67,14 @@ def create_key(key: AFK_Key, user_id: int = Path(..., ge=1)):
     _check_financial_entity_exists(key.financial_id)
 
     result = _check_user_exists(user_id)
-    isBusiness = result[3]
+    isBusiness = bool(result[3])
 
     query = "SELECT COUNT(*) FROM afk_keys WHERE userId = %(user_id)s"
     values = {"user_id": user_id}
     cursor.execute(query, values)
     cant_keys = cursor.fetchone()[0]
 
-    if((!isBusiness and cant_keys < 5) or (isBusiness and cant_keys < 20)):
+    if((not isBusiness and cant_keys < 5) or (isBusiness and cant_keys < 20)):
         query = "INSERT INTO afk_keys (keyValue, keyType, userId, financialId) VALUES (%(keyValue)s, %(keyType)s, %(userId)s, %(financialId)s)"
         values = {"keyValue": key.keyValue, "keyType": key.keyType, "userId": user_id, "financialId": key.financialId}
         cursor.execute(query, values)
@@ -134,8 +134,8 @@ def get_financial_entity(financial_id: int= Path(..., ge=1)):
 
     return {
         "id": result[0],
-        "name": result[1]
-        "apiLink": result[2],
+        "name": result[1],
+        "apiLink": result[2]
     }
 
 # TODO chequear

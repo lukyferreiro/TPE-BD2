@@ -56,7 +56,6 @@ def modify_account_balance(amount: float, AFK_key: str):
     result = cursor.fetchone()
     if result is None:
         raise HTTPException(status_code=404, detail="Account not found")
-    return result
     
     new_balance = float(result[0])
     new_balance += amount
