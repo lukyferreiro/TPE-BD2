@@ -1,7 +1,6 @@
-from fastapi import FastAPI, Path, HTTPException, Query
+from fastapi import FastAPI, Path, HTTPException
 from postgre_utils import *
 import random
-from typing import Optional
 
 app = FastAPI()
 
@@ -52,9 +51,14 @@ def create_account(username: str):
 # Endpoint para modificar el saldo de una cuenta
 @app.post("/accounts/{AFK_key}")
 def modify_account_balance(amount: float, AFK_key: str):
-    _check_account_exists(cbu)
+    query = "SELECT balance FROM accounts WHERE afk_key = %(AFK_key)s"
+    cursor.execute(query, {"AFK_key": AFK_key})
+    result = cursor.fetchone()
+    if result is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return result
     
-    new_balance = float(result[2])
+    new_balance = float(result[0])
     new_balance += amount
 
     if new_balance < 0:

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Path, HTTPException
 from models import *
-from postgre import *
-from mongoimport *
+from postgre_utils import *
+from mongo_utils import *
 import hashlib
 from functools import reduce
 
