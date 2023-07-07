@@ -2,6 +2,8 @@
 
 pip install fastapi uvicorn psycopg2 pymongo
 
+#-------------------PostgreSQL Container-------------------
+
 # Define the Docker container and PostgreSQL connection details
 POSTGRES_CONTAINER_NAME="afk-system-postgres"
 POSTGRES_USER="postgres"

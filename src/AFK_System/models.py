@@ -11,6 +11,7 @@ class User(BaseModel):
     isBusiness: bool
 
 class FinancialEntity(BaseModel):
+    name: str
     apiLink: str
 
 class AFK_Key(BaseModel):

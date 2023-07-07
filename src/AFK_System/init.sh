@@ -2,7 +2,7 @@
 
 pip install fastapi uvicorn psycopg2 pymongo
 
-# Define the Docker container and PostgreSQL connection details
+#-------------------PostgreSQL Container-------------------
 POSTGRES_CONTAINER_NAME="afk-system-postgres"
 POSTGRES_USER="postgres"
 POSTGRES_PASSWORD="my_password"
@@ -37,17 +37,18 @@ sleep 5
   );"
   SQL_CREATE_TABLE_2="CREATE TABLE IF NOT EXISTS financial_entity ( \
     id SERIAL NOT NULL PRIMARY KEY, \
+    name TEXT NOT NULL, \
     apiLink TEXT NOT NULL \
   );"
   SQL_CREATE_TABLE_3="CREATE TABLE IF NOT EXISTS afk_keys ( \
     userId INT NOT NULL, \
     financialId INT NOT NULL, \
     keyValue TEXT NOT NULL, \
-    keyType TEXT NOT NULL, \
+    keyType TEXT NOT NULL CHECK(keyType = 'email' OR keyType = 'cuit' OR keyType = 'phone-number' OR keyType = 'random'), \
     PRIMARY KEY(userId, financialId), \
     UNIQUE(keyType, keyValue), \
-    FOREIGN KEY (userId) REFERENCES users (userId) ON DELETE CASCADE, \
-    FOREIGN KEY (financialId) REFERENCES financial_entity (financialId) ON DELETE CASCADE \
+    FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE, \
+    FOREIGN KEY (financialId) REFERENCES financial_entity (id) ON DELETE CASCADE \
   );"
 
   # Execute the SQL statements inside the container
@@ -57,7 +58,8 @@ sleep 5
     -c "$SQL_CREATE_TABLE_3" 
 
 
-MONGO_CONTAINER_NAME="afk-mongo"
+#-------------------MongoDB Container-------------------
+MONGO_CONTAINER_NAME="afk-system-mongo"
 MONGO_PORT=27018
 MONGO_DATABASE="transactions_db"
 COLLECTION_NAME="transactions"
