@@ -6,3 +6,5 @@ connection = psycopg2.connect(
     user="your_user",
     password="your_password"
 )
+
+cursor = connection.cursor()
