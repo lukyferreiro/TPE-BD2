@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Path, HTTPException
-from models import *
 from postgre_utils import *
 import random
 
@@ -11,7 +10,7 @@ Un CBU esta formado por 22 digitos donde:
 -- Los siguientes 4 son el codigo de sucursal
 -- Los ultimos 15 son el numero de cuenta
 """
-CBU_PREFIX = 1111111
+CBU_PREFIX = "1111111"
 CBU_SUFFIX_LEN = 15
 DIGITS = "0123456789"
 CBU_REGEX = r"^[0-9]{22}$"
@@ -84,7 +83,6 @@ def get_all_accounts():
 
     return accounts
     
-
 # Endpoint para obtener una cuenta específica
 @app.get("/accounts/{cbu}")
 def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
@@ -111,8 +109,8 @@ def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
 def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX)):
     query = "SELECT COUNT(*) FROM accounts WHERE cbu = %(cbu)s"
     cursor.execute(query, {"cbu": cbu})
-    result = cursor.fetchone()
-    if result[0] == 0:
+    result = cursor.fetchone()[0]
+    if result == 0:
         raise HTTPException(status_code=404, detail="Account not found")
 
     query = "UPDATE accounts SET afk_key = %(afk_key)s WHERE cbu = %(cbu)s"
