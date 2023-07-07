@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Path, HTTPException
+from fastapi import FastAPI, Path, HTTPException, Query
 from postgre_utils import *
 import random
+from typing import Optional
 
 app = FastAPI()
 
@@ -19,13 +20,13 @@ def _create_cbu():
     flag = True
     while flag:
         random_cbu_suffix = ''.join(random.choice(DIGITS) for _ in range(CBU_SUFFIX_LEN))
-        NEW_CBU = CBU_PREFIX + random_cbu_suffix
+        cbu = CBU_PREFIX + str(random_cbu_suffix)
         query = "SELECT COUNT(*) FROM accounts WHERE cbu = %(cbu)s"
-        cursor.execute(query, {"cbu": NEW_CBU})
+        cursor.execute(query, {"cbu": cbu})
         result = cursor.fetchone()[0]
         if result == 0:
             flag = False
-    return result
+    return cbu
 
 
 #-----------------------------POST-----------------------------
@@ -34,8 +35,8 @@ def _create_cbu():
 @app.post("/accounts")
 def create_account(username: str):
     CBU = _create_cbu()
-    query = "INSERT INTO accounts (cbu, username, balance, afk_key) VALUES (%(cbu)s, %(username)s, %(balance)s, %(AFK_key)s)"
-    values = {"cbu": CBU, "username": username, "balance": 0.0, "AFK_key": None}
+    query = "INSERT INTO accounts (cbu, username, balance) VALUES (%(cbu)s, %(username)s, %(balance)s)"
+    values = {"cbu": CBU, "username": username, "balance": 0.0}
     cursor.execute(query, values)
     connection.commit()
     return {"cbu": CBU}
@@ -49,13 +50,13 @@ def modify_account_balance(amount: float, AFK_key: str):
     if result is None:
         raise HTTPException(status_code=404, detail="Account not found")
     
-    new_balance = result[0]
+    new_balance = float(result[0])
     new_balance += amount
     if new_balance < 0:
         raise HTTPException(status_code=403, detail="Insufficient funds")
 
     query = "UPDATE accounts SET balance = %(balance)s WHERE afk_key = %(AFK_key)s"
-    values = (amount, {"balance": new_balance, "afk_key": AFK_key})
+    values = {"balance": new_balance, "AFK_key": AFK_key}
     cursor.execute(query, values)
     connection.commit()
     return {"balance": new_balance}
@@ -104,9 +105,11 @@ def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
 
 #-----------------------------PUT-----------------------------
 
+ # TODO habria que que ver una forma de que se pueda desvincular la afk_key de la cuenta
+# No se si esta muy bien esto
 # Endpoint para vincular una AFK key a una cuenta
 @app.put("/accounts/{cbu}")
-def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX)):
+def link_afk_key_to_account(afk_key: str = None, cbu: str = Path(..., regex=CBU_REGEX)):
     query = "SELECT COUNT(*) FROM accounts WHERE cbu = %(cbu)s"
     cursor.execute(query, {"cbu": cbu})
     result = cursor.fetchone()[0]
@@ -115,12 +118,8 @@ def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX))
 
     query = "UPDATE accounts SET afk_key = %(afk_key)s WHERE cbu = %(cbu)s"
 
-    # TODO habria que que ver una forma de que se pueda desvincular la afk_key de la cuenta
-    # No se si esta muy bien esto
-    if afk_key is None:
-        values = {"afk_key": None, "cbu": cbu}
-    else:
-        values = {"afk_key": afk_key, "cbu": cbu}
+   
+    values = {"afk_key": afk_key, "cbu": cbu}
 
     cursor.execute(query, values)
     connection.commit()
@@ -131,8 +130,13 @@ def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX))
 # Endpoint para eliminar una cuenta
 @app.delete("/accounts/{cbu}")
 def delete_account(cbu: str = Path(..., regex=CBU_REGEX)):
+    query = "SELECT COUNT(*) FROM accounts WHERE cbu = %(cbu)s"
+    cursor.execute(query, {"cbu": cbu})
+    result = cursor.fetchone()[0]
+    if result == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+
     query = "DELETE FROM accounts WHERE cbu = %(cbu)s"
-    cursor = connection.cursor()
     cursor.execute(query, {"cbu": cbu})
     connection.commit()
     return {}

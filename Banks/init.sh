@@ -32,9 +32,9 @@ sleep 5
     CBU TEXT NOT NULL PRIMARY KEY, \
     username TEXT NOT NULL, \
     balance TEXT NOT NULL, \
-    AFK_key TEXT NOT NULL UNIQUE, \
+    AFK_key TEXT UNIQUE  \
   );"
   
 
   # Execute the SQL statements inside the container
-  docker exec -it "$POSTGRES_CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$SQL_CREATE_TABLE_1" 
+  docker exec -it "$POSTGRES_CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$SQL_CREATE_TABLE_1"
