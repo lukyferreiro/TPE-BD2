@@ -14,15 +14,18 @@ class FinancialEntity(BaseModel):
     apiLink: str
 
 class AFK_Key(BaseModel):
-    value: str
-    type: constr(regex=AFK_KEY_TYPE_REGEX)
+    keyValue: str
+    keyType: constr(regex=AFK_KEY_TYPE_REGEX)
+    financialEntityId: int
 
 class Transaction(BaseModel):
-    userId_from: int
     AFK_key_from: str
     AFK_key_to: str
     date: datetime.datetime
     amount: float
 
+class EditUser(BaseModel):
+    name: str
+    isBusiness: bool
 
 

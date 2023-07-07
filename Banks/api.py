@@ -118,10 +118,11 @@ def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX))
     # TODO habria que que ver una forma de que se pueda desvincular la afk_key de la cuenta
     # No se si esta muy bien esto
     if afk_key is None:
-        update_values = {"afk_key": None, "cbu": cbu}
+        values = {"afk_key": None, "cbu": cbu}
     else:
-        update_values = {"afk_key": afk_key, "cbu": cbu}
+        values = {"afk_key": afk_key, "cbu": cbu}
 
+    cursor.execute(query, values)
     connection.commit()
     return {}
 
