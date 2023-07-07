@@ -79,6 +79,9 @@ def create_key(key: AFK_Key, user_id: int = Path(..., ge=1)):
         values = {"keyValue": key.keyValue, "keyType": key.keyType, "userId": user_id, "financialId": key.financialId}
         cursor.execute(query, values)
         connection.commit()
+
+        #TODO llamar a la api del banco para asociar la clave a la cuenta
+
         return {}
     else:
         raise HTTPException(status_code=409, detail="You can not create more keys (5 for people and 20 for business)")
