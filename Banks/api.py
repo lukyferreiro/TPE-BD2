@@ -136,3 +136,8 @@ def delete_account(cbu: str = Path(..., regex=CBU_REGEX)):
     cursor.execute(query, {"cbu": cbu})
     connection.commit()
     return {}
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    cursor.close()
+    connection.close()

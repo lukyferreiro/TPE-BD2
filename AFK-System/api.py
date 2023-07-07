@@ -35,16 +35,16 @@ def create_financial_entity(financialEntity: FinancialEntity):
 
 @app.post("/keys/{user_id}")
 def create_key(key: AFK_Key, user_id: int= Path(..., ge=1)):
-    query = "SELECT COUNT(*) FROM afk_keys WHERE financialEntityId = %(financialEntityId)s"
-    cursor.execute(query, {"financialEntityId": key.financialEntityId})
+    query = "SELECT COUNT(*) FROM afk_keys WHERE financialId = %(financialId)s"
+    cursor.execute(query, {"financialId": key.financialId})
     result = cursor.fetchone()[0]
     if result == 0:
         raise HTTPException(status_code=404, detail="Financial entity not found")
 
     #TODO chequear si el usuario es bussines y ver cuantas claves puede crear
 
-    query = "INSERT INTO afk_keys (keyValue, keyType, userId, financialEntityId) VALUES (%(keyValue)s, %(keyType)s, %(userId)s, %(financialEntityId)s)"
-    values = {"keyValue": key.keyValue, "keyType": key.keyType, "userId": user_id, "financialEntityId": key.financialEntityId}
+    query = "INSERT INTO afk_keys (keyValue, keyType, userId, financialId) VALUES (%(keyValue)s, %(keyType)s, %(userId)s, %(financialId)s)"
+    values = {"keyValue": key.keyValue, "keyType": key.keyType, "userId": user_id, "financialId": key.financialId}
     cursor.execute(query, values)
     connection.commit()
     return {}
@@ -78,7 +78,7 @@ def get_user(user_id: int= Path(..., ge=1)):
 
 @app.get("/keys/{AFK_key}")
 def get_key(AFK_key: str):
-    query = "SELECT (keyValue, keyType, userId, financialEntityId) FROM afk_keys WHERE keyValue = %(AFK_key)s"
+    query = "SELECT (keyValue, keyType, userId, financialId) FROM afk_keys WHERE keyValue = %(AFK_key)s"
     cursor.execute(query, {"AFK_key": AFK_key})
     result = cursor.fetchone()
     
@@ -89,7 +89,7 @@ def get_key(AFK_key: str):
         "keyValue": result[0],
         "keyType": result[1],
         "userId": result[3],
-        "financialEntityId": result[4]
+        "financialId": result[4]
     }
 
 @app.get("/financialEntities/{financial_id}")
@@ -160,3 +160,9 @@ def delete_financial_entity(financial_id: int= Path(..., ge=1)):
     cursor.execute(query, {"financial_id": financial_id})
     connection.commit()
     return {}
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    cursor.close()
+    connection.close()

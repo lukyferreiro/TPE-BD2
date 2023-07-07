@@ -16,7 +16,7 @@ class FinancialEntity(BaseModel):
 class AFK_Key(BaseModel):
     keyValue: str
     keyType: constr(regex=AFK_KEY_TYPE_REGEX)
-    financialEntityId: int
+    financialId: int
 
 class Transaction(BaseModel):
     AFK_key_from: str
