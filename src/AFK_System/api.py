@@ -56,7 +56,7 @@ def create_user(name: str = Query(...), password: str = Query(...),
               "email": email, "isBusiness": isBusiness}
     cursor.execute(query, values)
     connection.commit()
-    return {}
+    return {"message": "User successfully created"}
 
 """
 @app.post("/financialEntities")
@@ -64,9 +64,8 @@ def create_financial_entity(financialId: str = Query(...), name: str = Query(...
     query = "INSERT INTO financial_entity (financialId, name, apiLink) VALUES (%(id)s, %(name)s, %(apiLink)s)"
     values = {"id": financialId, "name": name ,"apiLink": apiLink}
     cursor.execute(query, values)
-    financialId = cursor.fetchone()[0] 
     connection.commit()
-    return {"financialId": financialId}
+    return {"message": "Financial entity successfully created"}
 """
 
 @app.post("/keys")
@@ -77,6 +76,8 @@ def create_key(value: str = Query(...), type: str = Query(...),
     #     raise HTTPException(status_code=409, detail="Invalid type for AFK key")
 
     result_finacial_entity = _check_financial_entity_exists(cbu[:7])
+
+    #TODO chequear que el CBU exista en el banco
 
     result_user = _check_user_exists(user_id)
     isBusiness = bool(result_user[3])
@@ -92,17 +93,27 @@ def create_key(value: str = Query(...), type: str = Query(...),
         cursor.execute(query, values)
         connection.commit()
 
-        #TODO chequear que el CBU exista en el banco
-
-        #TODO habria que ver como rollbacker si falla algun pedido de estos
-        url = f"{result_finacial_entity[2]}/accounts/account/link?afk_key={value}&cbu={cbu}"
+        url = f"{result_finacial_entity[2]}/accounts/account/link"
         print(url)
-        response = requests.put(url=url)
+        params = {
+            'afk_key': value,
+            'cbu': cbu
+        }
+        response = requests.put(url=url, params=params)
+        print(response)
+        print(response.status_code)
 
         if response.status_code >= 400:
+            # Rollbackeamos si falla el pedido al banco
+            query = "DELETE FROM afk_keys WHERE value = %(value)s"
+            cursor = connection.cursor()
+            values = {"value": value}
+            cursor.execute(query, values)
+            connection.commit()
+
             raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
 
-        return {}
+        return {"message": "AFK key successfully created"}
     else:
         raise HTTPException(status_code=409, detail="You can not create more keys (5 for people and 20 for business)")
 
@@ -163,23 +174,38 @@ def get_all_financial_entities():
     return financial_entities
 
 @app.get("/users/{user_id}")
-def get_user(user_id: int= Path(..., ge=1)):
-    query = "SELECT * FROM users LEFT OUTER JOIN afk_keys ON users.userId = afk_keys.userId WHERE userId = %(user_id)s"
+def get_user(user_id: int = Path(..., ge=1)):
+    query = """
+        SELECT users.userId, users.name, users.email, users.isBusiness, afk_keys.keyId, afk_keys.value, afk_keys.type
+        FROM users
+        LEFT JOIN afk_keys ON users.userId = afk_keys.userId
+        WHERE users.userId = %(user_id)s
+    """
     values = {"user_id": user_id}
     cursor.execute(query, values)
-    result = cursor.fetchone()
-    
-    if result is None:
+    results = cursor.fetchall()
+
+    if len(results) == 0:
         raise HTTPException(status_code=404, detail="User not found")
 
+    print(results)
+
     user = {
-        "userId": result[0],
-        "name": result[1],
-        "email": result[2],
-        "isBusiness": result[3]
+        "userId": results[0][0],
+        "name": results[0][1],
+        "email": results[0][2],
+        "isBusiness": results[0][3],
+        "keys": []
     }
 
-    #TODO ver como devolver tambien las keys que tiene asociadas
+    for row in results:
+        if row[4] is not None:
+            key = {
+                "keyId": row[4],
+                "value": row[5],
+                "type": row[6]
+            }
+            user["keys"].append(key)
 
     return user
 
@@ -270,21 +296,23 @@ def delete_afk_key(afk_key: str = Path(...)):
     result_key = _check_afk_key_exits(afk_key)
     result_financial_entity = _check_financial_entity_exists(result_key[3])
 
-    query = "DELETE FROM afk_keys WHERE value = %(afk_key)s"
-    cursor = connection.cursor()
-    values = {"afk_key": afk_key}
-    cursor.execute(query, values)
-    connection.commit()
+    url = f"{result_financial_entity[2]}/accounts/account/unlink"
+    print(url)
+    params = {
+        'afk_key': value,
+    }
+    response = requests.put(url=url, params=params)
 
-    # TODO pedirle a la api del banco que desvincule la clave AFK de esa cuenta
-    # TODO habria que ver como rollbacker si falla algun pedido de estos
-    url = f"{result_financial_entity[2]}/accounts/account/unlink?afk_key={afk_key}"
-    requests.put(url=url)
-
-    if response.status_code >= 400:
-            raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
-
-    return {"message": "AFK key successfully deleted"}
+    if response.status_code == 200:
+        #Si se pudo desvincular en el banco, borramos la clave
+        query = "DELETE FROM afk_keys WHERE value = %(afk_key)s"
+        cursor = connection.cursor()
+        values = {"afk_key": afk_key}
+        cursor.execute(query, values)
+        connection.commit()
+        return {"message": "AFK key successfully deleted"}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])    
 
 
 @app.on_event("shutdown")
