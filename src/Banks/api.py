@@ -109,14 +109,39 @@ def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
 
 # Endpoint para vincular una AFK key a una cuenta
 @app.put("/accounts/{cbu}")
-def link_afk_key_to_account(afk_key: str = None, cbu: str = Path(..., regex=CBU_REGEX)):
+def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX)):
     _check_account_exists(cbu)
+
+    query = "SELECT COUNT(*) FROM accounts WHERE afk_key = %(afk_key)s"
+    values = {"afk_key": afk_key}
+    cursor.execute(query, values)
+    result = cursor.fetchone()[0]
+
+    if result != 0:
+        raise HTTPException(status_code=409, detail="AFK key already linked")
 
     query = "UPDATE accounts SET afk_key = %(afk_key)s WHERE cbu = %(cbu)s"
     values = {"afk_key": afk_key, "cbu": cbu}
     cursor.execute(query, values)
     connection.commit()
-    return {"message": "Account successfully updated"}
+    return {"message": "AFK key successfully linked"}
+
+# Endpoint para desvincular una AFK key a una cuenta
+@app.put("/accounts/{AFK_key}")
+def unlink_afk_key_to_account(afk_key: str):
+    query = "SELECT COUNT(*) FROM accounts WHERE afk_key = %(afk_key)s"
+    values = {"afk_key": afk_key}
+    cursor.execute(query, values)
+    result = cursor.fetchone()[0]
+
+    if result == 0:
+        raise HTTPException(status_code=409, detail="Account not found")
+
+    query = "UPDATE accounts SET afk_key = %(afk_key)s WHERE afk_key = %(afk_key)s"
+    values = {"afk_key": None}
+    cursor.execute(query, values)
+    connection.commit()
+    return {"message": "AFK key successfully unlinked"}
 
 
 #-----------------------------DELETE-----------------------------
