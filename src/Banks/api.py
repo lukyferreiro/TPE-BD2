@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Path, HTTPException
+from fastapi import FastAPI, Path, Query, HTTPException
 from postgre_utils import *
 import random
 
@@ -27,9 +27,17 @@ def _create_cbu():
             flag = False
     return cbu
 
-def _check_account_exists(cbu: str):
+def _check_account_exists_by_cbu(cbu: str):
     query = "SELECT cbu, username, balance, afk_key FROM accounts WHERE cbu = %(cbu)s"
     cursor.execute(query, {"cbu": cbu})
+    result = cursor.fetchone()
+    if result is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return result
+
+def _check_account_exists_by_key(afk_key: str):
+    query = "SELECT cbu, username, balance, afk_key FROM accounts WHERE afk_key = %(afk_key)s"
+    cursor.execute(query, {"afk_key": afk_key})
     result = cursor.fetchone()
     if result is None:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -38,6 +46,7 @@ def _check_account_exists(cbu: str):
 
 #-----------------------------POST-----------------------------
 
+"""
 # Endpoint para crear una cuenta
 @app.post("/accounts")
 def create_account(username: str):
@@ -47,29 +56,27 @@ def create_account(username: str):
     cursor.execute(query, values)
     connection.commit()
     return {"cbu": CBU}
+"""
 
 # Endpoint para modificar el saldo de una cuenta
-@app.post("/accounts/{AFK_key}")
-def modify_account_balance(amount: float, AFK_key: str):
-    query = "SELECT balance FROM accounts WHERE afk_key = %(AFK_key)s"
-    cursor.execute(query, {"AFK_key": AFK_key})
-    result = cursor.fetchone()
-    if result is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+@app.post("/accounts/account")
+def modify_account_balance(amount: float, afk_key: str = Query(...)):
+    result = _check_account_exists_by_key(afk_key)
     
-    new_balance = float(result[0])
+    new_balance = float(result[2])
     new_balance += amount
 
     if new_balance < 0:
         raise HTTPException(status_code=403, detail="Insufficient funds")
 
-    query = "UPDATE accounts SET balance = %(balance)s WHERE afk_key = %(AFK_key)s"
-    values = {"balance": new_balance, "AFK_key": AFK_key}
+    query = "UPDATE accounts SET balance = %(balance)s WHERE afk_key = %(afk_key)s"
+    values = {"balance": new_balance, "afk_key": afk_key}
     cursor.execute(query, values)
     connection.commit()
     return {"balance": new_balance}
 
 #-----------------------------GET-----------------------------
+
 
 # Endpoint para obtener todas las cuentas
 @app.get("/accounts")
@@ -92,11 +99,13 @@ def get_all_accounts():
         accounts.append(account)
 
     return accounts
+
     
+"""
 # Endpoint para obtener una cuenta específica
-@app.get("/accounts/{cbu}")
+@app.get("/accounts/account/{cbu}")
 def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
-    result = _check_account_exists(cbu)
+    result = _check_account_exists_by_cbu(cbu)
 
     return {
         "cbu": result[0],
@@ -104,13 +113,21 @@ def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
         "balance": result[2],
         "afk_key": result[3]
     }
+"""
+
+# Endpoint para obtener una cuenta específica
+@app.get("/accounts/account/balance")
+def get_balance(afk_key: str = Query(...)):
+    result = _check_account_exists_by_key(afk_key)
+
+    return {"balance": result[2]}
 
 #-----------------------------PUT-----------------------------
 
 # Endpoint para vincular una AFK key a una cuenta
-@app.put("/accounts/{cbu}")
-def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX)):
-    _check_account_exists(cbu)
+@app.put("/accounts/account/link")
+def link_afk_key_to_account(afk_key: str = Query(...), cbu: str = Query(..., regex=CBU_REGEX)):
+    _check_account_exists_by_cbu(cbu)
 
     query = "SELECT COUNT(*) FROM accounts WHERE afk_key = %(afk_key)s"
     values = {"afk_key": afk_key}
@@ -127,18 +144,12 @@ def link_afk_key_to_account(afk_key: str, cbu: str = Path(..., regex=CBU_REGEX))
     return {"message": "AFK key successfully linked"}
 
 # Endpoint para desvincular una AFK key a una cuenta
-@app.put("/accounts/{AFK_key}")
-def unlink_afk_key_to_account(afk_key: str):
-    query = "SELECT COUNT(*) FROM accounts WHERE afk_key = %(afk_key)s"
-    values = {"afk_key": afk_key}
-    cursor.execute(query, values)
-    result = cursor.fetchone()[0]
+@app.put("/accounts/account/unlink")
+def unlink_afk_key_to_account(afk_key: str = Query(...)):
+    _check_account_exists_by_key(afk_key)
 
-    if result == 0:
-        raise HTTPException(status_code=409, detail="Account not found")
-
-    query = "UPDATE accounts SET afk_key = %(afk_key)s WHERE afk_key = %(afk_key)s"
-    values = {"afk_key": None}
+    query = "UPDATE accounts SET afk_key = %(afk_key_to_set)s WHERE afk_key = %(afk_key)s"
+    values = {"afk_key_to_set": None, "afk_key": afk_key}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "AFK key successfully unlinked"}
@@ -146,15 +157,17 @@ def unlink_afk_key_to_account(afk_key: str):
 
 #-----------------------------DELETE-----------------------------
 
+"""
 # Endpoint para eliminar una cuenta
-@app.delete("/accounts/{cbu}")
+@app.delete("/accounts/account/{cbu}")
 def delete_account(cbu: str = Path(..., regex=CBU_REGEX)):
-    _check_account_exists(cbu)
+    _check_account_exists_by_cby(cbu)
 
     query = "DELETE FROM accounts WHERE cbu = %(cbu)s"
     cursor.execute(query, {"cbu": cbu})
     connection.commit()
     return {"message": "Account successfully deleted"}
+"""
 
 @app.on_event("shutdown")
 async def shutdown_event():
