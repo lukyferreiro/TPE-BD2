@@ -5,7 +5,7 @@ pip install fastapi uvicorn psycopg2 pymongo
 #-------------------PostgreSQL Container-------------------
 
 # Define the Docker container and PostgreSQL connection details
-POSTGRES_CONTAINER_NAME="afk-system-postgres"
+POSTGRES_CONTAINER_NAME="bank-system-postgres"
 POSTGRES_USER="postgres"
 POSTGRES_PASSWORD="my_password"
 POSTGRES_DB="my_database"
@@ -33,7 +33,7 @@ sleep 5
   SQL_CREATE_TABLE_1="CREATE TABLE IF NOT EXISTS accounts ( \
     CBU TEXT NOT NULL PRIMARY KEY, \
     username TEXT NOT NULL, \
-    balance TEXT NOT NULL, \
+    balance DECIMAL NOT NULL, \
     AFK_key TEXT UNIQUE  \
   );"
   
