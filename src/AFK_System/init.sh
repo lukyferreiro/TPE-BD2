@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pip install fastapi uvicorn psycopg2 pymongo
+pip install fastapi uvicorn psycopg2 pymongo pydantic[email]
 
 #-------------------PostgreSQL Container-------------------
 POSTGRES_CONTAINER_NAME="afk-system-postgres"
@@ -29,33 +29,46 @@ sleep 5
 
   # Define the SQL statements to create the tables
   SQL_CREATE_TABLE_1="CREATE TABLE IF NOT EXISTS users ( \
-    id SERIAL NOT NULL PRIMARY KEY, \
+    userId SERIAL NOT NULL PRIMARY KEY, \
     name TEXT NOT NULL, \
     password TEXT NOT NULL, \
     email TEXT NOT NULL UNIQUE, \
     isBusiness BOOLEAN NOT NULL DEFAULT FALSE \
   );"
   SQL_CREATE_TABLE_2="CREATE TABLE IF NOT EXISTS financial_entity ( \
-    id SERIAL NOT NULL PRIMARY KEY, \
+    financialId VARCHAR(7) NOT NULL PRIMARY KEY CHECK (LENGTH(financialId) = 7), \
     name TEXT NOT NULL, \
     apiLink TEXT NOT NULL \
   );"
   SQL_CREATE_TABLE_3="CREATE TABLE IF NOT EXISTS afk_keys ( \
     userId INT NOT NULL, \
-    financialId INT NOT NULL, \
-    keyValue TEXT NOT NULL, \
-    keyType TEXT NOT NULL CHECK(keyType = 'email' OR keyType = 'cuit' OR keyType = 'phone_number' OR keyType = 'random'), \
-    PRIMARY KEY(userId, financialId), \
-    UNIQUE(keyType, keyValue), \
-    FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE, \
-    FOREIGN KEY (financialId) REFERENCES financial_entity (id) ON DELETE CASCADE \
+    financialId VARCHAR(7) NOT NULL CHECK (LENGTH(financialId) = 7), \
+    value TEXT NOT NULL, \
+    type TEXT NOT NULL CHECK(type = 'email' OR type = 'cuit' OR type = 'phone_number' OR type = 'random'), \
+    UNIQUE(type, value), \
+    FOREIGN KEY (userId) REFERENCES users (userId) ON DELETE CASCADE, \
+    FOREIGN KEY (financialId) REFERENCES financial_entity (financialId) ON DELETE CASCADE \
   );"
+
+  # TODO: Modify according to your codespace
+  API_LINK_1="https://lukyferreiro-obscure-space-succotash-wxpvqj4j7x6367g-8001.preview.app.github.dev"
+  SQL_INSERT_FINANCIAL_ENTITY_1="INSERT INTO financial_entity (financialId, name, apiLink) VALUES (1111111, 'Santander', '$API_LINK_1')"
+
+  API_LINK_2="..."
+  SQL_INSERT_FINANCIAL_ENTITY_2="INSERT INTO financial_entity (financialId, name, apiLink) VALUES (2222222, 'BBVA', '$API_LINK_2')"
+
+  API_LINK_3="..."
+  SQL_INSERT_FINANCIAL_ENTITY_3="INSERT INTO financial_entity (financialId, name, apiLink) VALUES (3333333, 'Galicia', '$API_LINK_3')"
+
 
   # Execute the SQL statements inside the container
   docker exec -it "$POSTGRES_CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
     -c "$SQL_CREATE_TABLE_1" \
     -c "$SQL_CREATE_TABLE_2" \
-    -c "$SQL_CREATE_TABLE_3" 
+    -c "$SQL_CREATE_TABLE_3" \
+    -c "$SQL_INSERT_FINANCIAL_ENTITY_1" \
+    -c "$SQL_INSERT_FINANCIAL_ENTITY_2" \
+    -c "$SQL_INSERT_FINANCIAL_ENTITY_3"
 
 
 #-------------------MongoDB Container-------------------
@@ -76,4 +89,4 @@ fi
 
 sleep 5
 
-docker exec -it $MONGO_CONTAINER_NAME mongosh $MONGO_DATABASE --eval "db.$COLLECTION_NAME.createIndex({ user_id: 1 })" --quiet
+docker exec -it $MONGO_CONTAINER_NAME mongosh $MONGO_DATABASE --eval "db.$COLLECTION_NAME.createIndex({ userId_from: 1 })" --quiet
