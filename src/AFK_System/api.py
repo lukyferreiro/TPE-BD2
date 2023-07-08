@@ -7,9 +7,6 @@ from functools import reduce
 import requests
 from pydantic import EmailStr, constr, Field
 
-
-CBU_REGEX = r"^[0-9]{22}$"
-
 app = FastAPI()
 
 def _check_user_exists(user_id: int):
@@ -42,42 +39,38 @@ def _check_afk_key_exits(afk_key: str):
 #-----------------------------POST-----------------------------
 
 @app.post("/users")
-def create_user(name: str = Query(...), password: str = Query(...),
-                email: EmailStr = Query(...), isBusiness: bool = Query(...)):
+def create_user(user: PostUser):
     query = "SELECT COUNT(*) FROM users WHERE email = %(email)s"
-    cursor.execute(query, {"email": email})
+    cursor.execute(query, {"email": user.email})
     result = cursor.fetchone()[0]
 
     if result != 0:
         raise HTTPException(status_code=409, detail="User already registered")
 
     query = "INSERT INTO users (name, password, email, isBusiness) VALUES (%(name)s, %(password)s, %(email)s, %(isBusiness)s)"
-    values = {"name": name, "password": hashlib.sha256(password.encode()).hexdigest(),
-              "email": email, "isBusiness": isBusiness}
+    values = {"name": user.name, "password": hashlib.sha256(user.password.encode()).hexdigest(),
+              "email": user.email, "isBusiness": user.isBusiness}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "User successfully created"}
 
 """
 @app.post("/financialEntities")
-def create_financial_entity(financialId: str = Query(...), name: str = Query(...), apiLink: str = Query(...)):
+def create_financial_entity(financialEntity: PostFinancialEntity):
     query = "INSERT INTO financial_entity (financialId, name, apiLink) VALUES (%(id)s, %(name)s, %(apiLink)s)"
-    values = {"id": financialId, "name": name ,"apiLink": apiLink}
+    values = {"id": financialEntity.financialId, "name": financialEntity.name ,"apiLink": financialEntity.apiLink}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "Financial entity successfully created"}
 """
 
 @app.post("/keys")
-def create_key(value: str = Query(...), type: str = Query(...), 
-               cbu: str = Query(..., regex=CBU_REGEX) , user_id: int = Query(..., ge=1)):
+def create_key(afkKey: PostAfkKey, user_id: int = Query(..., ge=1)):
 
-    #if(type != "email" or type != "cuit" or type != "phone_number", type != "random"):
-    #     raise HTTPException(status_code=409, detail="Invalid type for AFK key")
-
-    result_finacial_entity = _check_financial_entity_exists(cbu[:7])
+    result_finacial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
 
     #TODO chequear que el CBU exista en el banco
+    #...
 
     result_user = _check_user_exists(user_id)
     isBusiness = bool(result_user[3])
@@ -89,17 +82,17 @@ def create_key(value: str = Query(...), type: str = Query(...),
 
     if((not isBusiness and cant_keys < 5) or (isBusiness and cant_keys < 20)):
         query = "INSERT INTO afk_keys (value, type, userId, financialId) VALUES (%(value)s, %(type)s, %(userId)s, %(financialId)s)"
-        values = {"value": value, "type": type, "userId": user_id, "financialId": result_finacial_entity[0]}
+        values = {"value": afkKey.value, "type": afkKey.keyType, "userId": user_id, "financialId": result_finacial_entity[0]}
         cursor.execute(query, values)
         connection.commit()
 
         url = f"{result_finacial_entity[2]}/accounts/account/link"
         print(url)
-        params = {
-            'afk_key': value,
-            'cbu': cbu
+        body = {
+            'afk_key': afkKey.value,
+            'cbu': afkKey.cbu
         }
-        response = requests.put(url=url, params=params)
+        response = requests.put(url=url, body=body)
         print(response)
         print(response.status_code)
 
@@ -118,9 +111,8 @@ def create_key(value: str = Query(...), type: str = Query(...),
         raise HTTPException(status_code=409, detail="You can not create more keys (5 for people and 20 for business)")
 
 @app.post("/users/{user_id}/transaction")
-def create_transaction(afk_key_from: str = Query(...), afk_key_to: str = Query(...),
-                       amount: float = Query(...), user_id: int= Path(..., ge=1)):
-    if (amount < 0):
+def create_transaction(postTransaction: PostTransaction user_id: int= Path(..., ge=1)):
+    if (postTransaction.amount < 0):
         raise HTTPException(status_code=400, detail="Transfer amounts have to be positive")
 
     # TODO
@@ -243,27 +235,14 @@ def get_user_transactions(user_id: int= Path(..., ge=1)):
 #-----------------------------PUT-----------------------------
 
 @app.put("/users/{user_id}")
-def edit_user(name: str = Query(...), isBusiness: bool = Query(...), user_id: int= Path(..., ge=1)):
+def edit_user(putUser: PutUser, user_id: int= Path(..., ge=1)):
     _check_user_exists(user_id)
 
     query = "UPDATE users SET name = %(name)s, isBusiness = %(isBusiness)s  WHERE userId = %(user_id)s"
-    values = {"name": name, "isBusiness": isBusiness, "user_id": user_id}
+    values = {"name": putUser.name, "isBusiness": putUser.isBusiness, "user_id": user_id}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "User successfully updated"}
-
-"""
-@app.put("/financialEntities/{financial_id}")
-def edit_financial_entity(financialId: str = Query(...), name: str = Query(...),
-                          apiLink: str = Query(...), financial_id: int= Path(..., ge=1)):
-    _check_financial_entity_exists(financial_id)
-
-    query = "UPDATE users SET name = %(name)s, apiLink = %(apiLink)s WHERE financialId = %(financial_id)s"
-    values = {"name": name, "apiLink": apiLink, "financial_id": financialId}
-    cursor.execute(query, values)
-    connection.commit()
-    return {"message": "Financial entity successfully updated"}
-"""
 
 #-----------------------------DELETE-----------------------------
 
@@ -298,10 +277,10 @@ def delete_afk_key(afk_key: str = Path(...)):
 
     url = f"{result_financial_entity[2]}/accounts/account/unlink"
     print(url)
-    params = {
+    body = {
         'afk_key': value,
     }
-    response = requests.put(url=url, params=params)
+    response = requests.put(url=url, body=body)
 
     if response.status_code == 200:
         #Si se pudo desvincular en el banco, borramos la clave

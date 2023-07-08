@@ -10,22 +10,7 @@ Un CBU esta formado por 22 digitos donde:
 -- Los siguientes 4 son el codigo de sucursal
 -- Los ultimos 15 son el numero de cuenta
 """
-CBU_PREFIX = "1111111"
-CBU_SUFFIX_LEN = 15
-DIGITS = "0123456789"
 CBU_REGEX = r"^[0-9]{22}$"
-
-def _create_cbu():
-    flag = True
-    while flag:
-        random_cbu_suffix = ''.join(random.choice(DIGITS) for _ in range(CBU_SUFFIX_LEN))
-        cbu = CBU_PREFIX + str(random_cbu_suffix)
-        query = "SELECT COUNT(*) FROM accounts WHERE cbu = %(cbu)s"
-        cursor.execute(query, {"cbu": cbu})
-        result = cursor.fetchone()[0]
-        if result == 0:
-            flag = False
-    return cbu
 
 def _check_account_exists_by_cbu(cbu: str):
     query = "SELECT cbu, username, balance, afk_key FROM accounts WHERE cbu = %(cbu)s"
@@ -60,17 +45,17 @@ def create_account(username: str):
 
 # Endpoint para modificar el saldo de una cuenta
 @app.post("/accounts/account")
-def modify_account_balance(amount: float, afk_key: str = Query(...)):
-    result = _check_account_exists_by_key(afk_key)
+def modify_account_balance(postAmount: PostAmount):
+    result = _check_account_exists_by_key(postAmount.afk_key)
     
     new_balance = float(result[2])
-    new_balance += amount
+    new_balance += postAmount.amount
 
     if new_balance < 0:
         raise HTTPException(status_code=403, detail="Insufficient funds")
 
     query = "UPDATE accounts SET balance = %(balance)s WHERE afk_key = %(afk_key)s"
-    values = {"balance": new_balance, "afk_key": afk_key}
+    values = {"balance": new_balance, "afk_key": postAmount.afk_key}
     cursor.execute(query, values)
     connection.commit()
     return {"balance": new_balance}
@@ -126,11 +111,11 @@ def get_balance(afk_key: str = Query(...)):
 
 # Endpoint para vincular una AFK key a una cuenta
 @app.put("/accounts/account/link")
-def link_afk_key_to_account(afk_key: str = Query(...), cbu: str = Query(..., regex=CBU_REGEX)):
-    _check_account_exists_by_cbu(cbu)
+def link_afk_key_to_account(putLink: PutLink):
+    _check_account_exists_by_cbu(putLink.cbu)
 
     query = "SELECT COUNT(*) FROM accounts WHERE afk_key = %(afk_key)s"
-    values = {"afk_key": afk_key}
+    values = {"afk_key": putLink.afk_key}
     cursor.execute(query, values)
     result = cursor.fetchone()[0]
 
@@ -138,18 +123,18 @@ def link_afk_key_to_account(afk_key: str = Query(...), cbu: str = Query(..., reg
         raise HTTPException(status_code=409, detail="AFK key already linked")
 
     query = "UPDATE accounts SET afk_key = %(afk_key)s WHERE cbu = %(cbu)s"
-    values = {"afk_key": afk_key, "cbu": cbu}
+    values = {"afk_key": putLink.afk_key, "cbu": putLink.cbu}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "AFK key successfully linked"}
 
 # Endpoint para desvincular una AFK key a una cuenta
 @app.put("/accounts/account/unlink")
-def unlink_afk_key_to_account(afk_key: str = Query(...)):
-    _check_account_exists_by_key(afk_key)
+def unlink_afk_key_to_account(putUnlink: PutLink):
+    _check_account_exists_by_key(putUnlink.afk_key)
 
     query = "UPDATE accounts SET afk_key = %(afk_key_to_set)s WHERE afk_key = %(afk_key)s"
-    values = {"afk_key_to_set": None, "afk_key": afk_key}
+    values = {"afk_key_to_set": None, "afk_key": putUnlink.afk_key}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "AFK key successfully unlinked"}
