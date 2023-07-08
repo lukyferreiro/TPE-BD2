@@ -44,7 +44,7 @@ sleep 5
     userId INT NOT NULL, \
     financialId INT NOT NULL, \
     keyValue TEXT NOT NULL, \
-    keyType TEXT NOT NULL CHECK(keyType = 'email' OR keyType = 'cuit' OR keyType = 'phone-number' OR keyType = 'random'), \
+    keyType TEXT NOT NULL CHECK(keyType = 'email' OR keyType = 'cuit' OR keyType = 'phone_number' OR keyType = 'random'), \
     PRIMARY KEY(userId, financialId), \
     UNIQUE(keyType, keyValue), \
     FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE, \

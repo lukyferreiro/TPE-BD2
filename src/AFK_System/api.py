@@ -42,7 +42,7 @@ def create_user(user: User):
     cursor.execute(query, {"email": user.email})
     result = cursor.fetchone()[0]
 
-    if result == 0:
+    if result != 0:
         raise HTTPException(status_code=409, detail="User already registered")
 
     query = "INSERT INTO users (name, password, email, isBusiness) VALUES (%(name)s, %(password)s, %(email)s, %(isBusiness)s)"
@@ -193,6 +193,20 @@ def delete_financial_entity(financial_id: int= Path(..., ge=1)):
     cursor.execute(query, values)
     connection.commit()
     return {"message": "Financial entity successfully deleted"}
+
+@app.delete("/keys/{AFK_key}")
+def delete_afk_key(AFK_key: str):
+    _check_afk_key_exits(AFK_key)
+
+    query = "DELETE FROM afk_keys WHERE keyValue = %(AFK_key)s"
+    cursor = connection.cursor()
+    values = {"AFK_key": AFK_key}
+    cursor.execute(query, values)
+    connection.commit()
+
+    # TODO pedirle a la api del banco que desvincule la clave AFK de esa cuenta
+
+    return {"message": "AFK key successfully deleted"}
 
 
 @app.on_event("shutdown")
