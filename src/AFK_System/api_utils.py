@@ -80,19 +80,14 @@ def _validate_credentials(email: str, password: str):
 
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
-def _unlink_key_from_account(apiLink: str, afk_key: str):
-    url = f"{apiLink}/accounts/account/unlink"
-    body = {'afk_key': afk_key}
-    
-    try:
-        response = requests.put(url=url, json=body)
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
-
-    return response
-
 def _delete_user_from_id(user_id: int):
     query = "DELETE FROM users WHERE userId = %(user_id)s"
     values = {"user_id": user_id}
+    cursor.execute(query, values)
+    connection.commit()
+
+def _delete_afk_key(afk_key: int):
+    query = "DELETE FROM afkKeys WHERE value = %(afk_key)s"
+    values = {"afk_key": afk_key}
     cursor.execute(query, values)
     connection.commit()

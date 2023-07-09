@@ -3,14 +3,14 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from models import PostUser, PostFinancialEntity, PostAfkKey, PostTransaction, PutUser
 from postgre_utils import connection, cursor
 from mongo_utils import client, db, collection
-from api_utils import _check_user_exists, _check_user_exists_by_email, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _unlink_key_from_account, _delete_user_from_id
+from api_utils import _check_user_exists, _check_user_exists_by_email, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _delete_user_from_id, _delete_afk_key
+from bank_utils import _unlink_key_from_account, _link_key_from_account, _get_balance_from_account
 import hashlib
 import requests
 import psycopg2
 from pydantic import EmailStr, constr, Field
 from datetime import datetime
 import pytz
-
 
 app = FastAPI()
 security = HTTPBasic()
@@ -65,23 +65,9 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
         cursor.execute(query, values)
         connection.commit()
 
-        url = f"{result_finacial_entity[2]}/accounts/account/link"
-        body = {
-            'afk_key': f"{afkKey.value}",
-            'cbu': f"{afkKey.cbu}"
-        }
-
-        try:
-            response = requests.put(url, json=body)
-        except requests.exceptions.RequestException as e:
-            # Rollbackeamos si falla el pedido al banco
-            query = "DELETE FROM afkKeys WHERE value = %(value)s"
-            values = {"value": afkKey.value}
-            cursor.execute(query, values)
-            connection.commit()
-            raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
+        response = _link_key_from_account(result_finacial_entity[2], afkKey.value, afkKey.cbu)
         
-        return {"message": "AFK key created successfully"}
+        return {"message": response.json()['message']}
 
     else:
         raise HTTPException(status_code=409, detail="You can not create more keys (5 for people and 20 for business)")
@@ -122,10 +108,10 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
 
             transaction_data = {
                 "to": postTransaction.afk_key_to,
-                "from": postTransaction.afk_key_to,
+                "from": postTransaction.afk_key_from,
                 "amount": 100.0,
                 "date": formatted_datetime,
-                "user_id": user_id_from
+                "userId_from": user_id_from
             }       
             result = collection.insert_one(transaction_data)
             if result.inserted_id:
@@ -238,14 +224,7 @@ def get_balance(afk_key: str = Path(..., min_length=1), credentials: HTTPBasicCr
     result_key = _check_afk_key_exists(afk_key)
     result_finacial_entity = _check_financial_entity_exists(result_key[3])
 
-    url = f"{result_finacial_entity[2]}/accounts/account/balance"
-    params = {'afk_key': afk_key}
-
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status() 
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=500, detail="Error al procesar la solicitud")
+    response = _get_balance_from_account(result_finacial_entity[2], afk_key)
 
     return {"balance": float(response.json()['balance'])}
 
@@ -300,15 +279,16 @@ def edit_user(putUser: PutUser, credentials: HTTPBasicCredentials = Depends(secu
 
 #-----------------------------DELETE-----------------------------
 
+"""
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int= Path(..., ge=1)):
     _check_user_exists(user_id)
 
-    query = """
+    query = ""
         SELECT afkKeys.value, financialEntities.apiLink
         FROM (users JOIN afkKeys ON users.userId = afkKeys.userId) JOIN financialEntities ON afkKeys.financialId = financialEntities.apiLink
         WHERE users.userId = %(user_id)s
-    """
+    ""
     values = {"user_id": user_id}
     cursor.execute(query, values)
     results = cursor.fetchall()
@@ -327,6 +307,7 @@ def delete_user(user_id: int= Path(..., ge=1)):
             
         _delete_user_from_id(user_id)
         return {"message": "User deleted successfully"}
+"""
 
 """
 @app.delete("/financialEntities/{financial_id}")
@@ -355,13 +336,10 @@ def delete_afk_key(afk_key: str = Path(...), credentials: HTTPBasicCredentials =
 
     if response.status_code == 200:
         #Si se pudo desvincular en el banco, borramos la clave
-        query = "DELETE FROM afkKeys WHERE value = %(afk_key)s"
-        values = {"afk_key": afk_key}
-        cursor.execute(query, values)
-        connection.commit()
+        _delete_afk_key(afk_key)
         return {"message": "AFK key deleted successfully"}
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    #cursor.close()
+    cursor.close()
     connection.close()
