@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Path, Query, HTTPException
-from postgre_utils import *
-from models import *
+from postgre_utils import connection, cursor
+from models import PostAmount, PutLink, PutUnlink
+from api_utils import _check_account_exists_by_cbu, _check_account_exists_by_key
 import random
 
 app = FastAPI()
@@ -11,23 +12,6 @@ Un CBU esta formado por 22 digitos donde:
 -- Los siguientes 4 son el codigo de sucursal
 -- Los ultimos 15 son el numero de cuenta
 """
-
-def _check_account_exists_by_cbu(cbu: str):
-    query = "SELECT cbu, username, balance, afk_key FROM accounts WHERE cbu = %(cbu)s"
-    cursor.execute(query, {"cbu": cbu})
-    result = cursor.fetchone()
-    if result is None:
-        raise HTTPException(status_code=404, detail="Account not found")
-    return result
-
-def _check_account_exists_by_key(afk_key: str):
-    query = "SELECT cbu, username, balance, afk_key FROM accounts WHERE afk_key = %(afk_key)s"
-    cursor.execute(query, {"afk_key": afk_key})
-    result = cursor.fetchone()
-    if result is None:
-        raise HTTPException(status_code=404, detail="Account not found")
-    return result
-
 
 #-----------------------------POST-----------------------------
 
@@ -46,6 +30,7 @@ def create_account(username: str):
 # Endpoint para modificar el saldo de una cuenta
 @app.post("/accounts/account")
 def modify_account_balance(postAmount: PostAmount):
+    print(postAmount)
     result = _check_account_exists_by_key(postAmount.afk_key)
     
     new_balance = float(result[2])
@@ -89,7 +74,7 @@ def get_all_accounts():
 """
 # Endpoint para obtener una cuenta específica
 @app.get("/accounts/account/{cbu}")
-def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
+def get_account(cbu: str = Path(..., title="CBU", regex=CBU_REGEX)):
     result = _check_account_exists_by_cbu(cbu)
 
     return {
@@ -102,7 +87,7 @@ def get_account(cbu: str = Path(..., regex=CBU_REGEX)):
 
 # Endpoint para obtener una cuenta específica
 @app.get("/accounts/account/balance")
-def get_balance(afk_key: str = Query(...)):
+def get_balance(afk_key: str = Query(..., title="AFK key", min_length=1)):
     result = _check_account_exists_by_key(afk_key)
 
     return {"balance": result[2]}
@@ -145,7 +130,7 @@ def unlink_afk_key_to_account(putUnlink: PutUnlink):
 """
 # Endpoint para eliminar una cuenta
 @app.delete("/accounts/account/{cbu}")
-def delete_account(cbu: str = Path(..., regex=CBU_REGEX)):
+def delete_account(cbu: str = Path(..., title="CBU", regex=CBU_REGEX)):
     _check_account_exists_by_cbu(cbu)
 
     query = "DELETE FROM accounts WHERE cbu = %(cbu)s"

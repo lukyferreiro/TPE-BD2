@@ -1,11 +1,7 @@
-from fastapi import FastAPI, Path, Query, HTTPException, Depends
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import HTTPException
 from postgre_utils import connection, cursor
 from mongo_utils import *
 import hashlib
-import requests
-import psycopg2
-from pydantic import EmailStr, constr, Field
 
 def _check_user_exists(user_id: int):
     query = "SELECT userId, name, email, isBusiness FROM users WHERE userId = %(user_id)s"
@@ -59,7 +55,7 @@ def _check_relation_user_key(user_id: int, afk_key: str):
 def _get_api_link_from_afk_key(afk_key: str, who: str):
     query = """ 
         SELECT financialEntities.apiLink FROM afkKeys JOIN financialEntities 
-        ON afkKeys.finacialId = financialEntities.finacialId WHERE afkKeys.value = %(afk_key)s
+        ON afkKeys.financialId = financialEntities.financialId WHERE afkKeys.value = %(afk_key)s
     """
     values = {"afk_key": afk_key}
     cursor = connection.cursor()

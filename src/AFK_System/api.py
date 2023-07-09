@@ -3,12 +3,11 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from models import PostUser, PostFinancialEntity, PostAfkKey, PostTransaction, PutUser
 from postgre_utils import connection, cursor
 from mongo_utils import client, db, collection
+from pymongo.errors import PyMongoError
 from api_utils import _check_user_exists, _check_user_exists_by_email, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _delete_user_from_id, _delete_afk_key
-from bank_utils import _unlink_key_from_account, _link_key_from_account, _get_balance_from_account
+from bank_utils import _unlink_key_from_account, _link_key_from_account, _get_balance_from_account, _make_transaction
 import hashlib
 import requests
-import psycopg2
-from pydantic import EmailStr, constr, Field
 from datetime import datetime
 import pytz
 
@@ -47,7 +46,7 @@ def create_financial_entity(financialEntity: PostFinancialEntity):
 @app.post("/keys")
 def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(security)):
 
-    result_finacial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
+    result_financial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
 
     email = credentials.username
     password = credentials.password
@@ -61,11 +60,11 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
 
     if((not isBusiness and cant_keys < 5) or (isBusiness and cant_keys < 20)):
         query = "INSERT INTO afkKeys (value, type, userId, financialId) VALUES (%(value)s, %(type)s, %(userId)s, %(financialId)s)"
-        values = {"value": afkKey.value, "type": afkKey.keyType, "userId": user_id, "financialId": result_finacial_entity[0]}
+        values = {"value": afkKey.value, "type": afkKey.keyType, "userId": user_id, "financialId": result_financial_entity[0]}
         cursor.execute(query, values)
         connection.commit()
 
-        response = _link_key_from_account(result_finacial_entity[2], afkKey.value, afkKey.cbu)
+        response = _link_key_from_account(result_financial_entity[2], afkKey.value, afkKey.cbu)
         
         return {"message": response.json()['message']}
 
@@ -83,56 +82,12 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
 
     apiLink_from = _get_api_link_from_afk_key(postTransaction.afk_key_from, "from")
     apiLink_to = _get_api_link_from_afk_key(postTransaction.afk_key_to, "to")
-    
-    url_from = f"{apiLink_from[2]}/accounts/account"
-    body_from = {
-        'afk_key': f"{apiLink_from}",
-        'amount': float(-postTransaction.amount)
-    }
-    response_from = requests.post(url_from, json=body_from)
 
-    if response_from.status_code == 200:
-        url_from = f"{apiLink_to[2]}/accounts/account"
-        body_to = {
-            'afk_key': f"{apiLink_to}",
-            'amount': float(postTransaction.amount)
-        }
-        response_to = requests.post(url_from, json=body_to)
+    _make_transaction(apiLink_from, apiLink_to, postTransaction.amount,
+                      postTransaction.afk_key_from, postTransaction.afk_key_to,
+                      user_id_from)
 
-        if response_to.status_code == 200:
-            # TODO guardar toda la info en Mongo
-            argentina_tz = pytz.timezone('America/Argentina/Buenos_Aires')
-            current_datetime = datetime.now()
-            current_datetime = current_datetime.astimezone(argentina_tz)
-            formatted_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-            transaction_data = {
-                "to": postTransaction.afk_key_to,
-                "from": postTransaction.afk_key_from,
-                "amount": 100.0,
-                "date": formatted_datetime,
-                "userId_from": user_id_from
-            }       
-            result = collection.insert_one(transaction_data)
-            if result.inserted_id:
-                print("Transacción insertada con éxito. ObjectID:", result.inserted_id)
-            else:
-                print("Error al insertar la transacción.")
-
-            return {"message": "Transaction completed successfully"}
-        else: 
-            # Si falla la segunda transacción, le devuelvo al primer usuario su dinero
-            url_from = f"{apiLink_from[2]}/accounts/account"
-            body_from = {
-                'afk_key': f"{apiLink_from}",
-                'amount': float(postTransaction.amount)
-            }
-            response_from = requests.post(url_from, json=body_from)
-            pass
-
-    else :
-        # TODO ver que se hace. Enviar mensaje de que transacción falló
-        pass
+    return {"message": "Transaction completed successfully"}
 
 
 #-----------------------------GET-----------------------------
@@ -148,7 +103,6 @@ def get_all_users():
         raise HTTPException(status_code=404, detail="No users found")
 
     users = []
-    print(result)
     for row in result:
         user = {
             "userId": row[0],
@@ -171,7 +125,6 @@ def get_all_financial_entities():
         raise HTTPException(status_code=404, detail="No financial entity found")
 
     financial_entities = []
-    print(result)
     for row in result:
         account = {
             "financialId": row[0],
@@ -184,7 +137,7 @@ def get_all_financial_entities():
 
 # Endpoint para obtener un usuario a partir de su ID
 @app.get("/users/{user_id}")
-def get_user(user_id: int = Path(..., ge=1)):
+def get_user(user_id: int = Path(..., title="User ID", ge=1)):
     query = """
         SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value, afkKeys.type
         FROM users LEFT JOIN afkKeys ON users.userId = afkKeys.userId WHERE users.userId = %(user_id)s
@@ -216,20 +169,20 @@ def get_user(user_id: int = Path(..., ge=1)):
 
 # Endpoint para obtener el balance de un usuario a partir de su AFK key
 @app.get("/users/balance/{afk_key}")
-def get_balance(afk_key: str = Path(..., min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
+def get_balance(afk_key: str = Path(..., title="AFK key", min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
     email = credentials.username
     password = credentials.password
     _validate_credentials(email, password)
 
     result_key = _check_afk_key_exists(afk_key)
-    result_finacial_entity = _check_financial_entity_exists(result_key[3])
+    result_financial_entity = _check_financial_entity_exists(result_key[3])
 
-    response = _get_balance_from_account(result_finacial_entity[2], afk_key)
+    response = _get_balance_from_account(result_financial_entity[2], afk_key)
 
     return {"balance": float(response.json()['balance'])}
 
 @app.get("/keys/{afk_key}")
-def get_key(afk_key: str = Path(...)):
+def get_key(afk_key: str = Path(..., title="AFK key", min_length=1)):
     result = _check_afk_key_exists(afk_key)
 
     return {
@@ -240,7 +193,7 @@ def get_key(afk_key: str = Path(...)):
     }
 
 @app.get("/financialEntities/{financial_id}")
-def get_financial_entity(financial_id: int= Path(..., ge=1)):
+def get_financial_entity(financial_id: int= Path(..., title="Financial Entity ID", ge=1)):
     result = _check_financial_entity_exists(financial_id)
 
     return {
@@ -250,16 +203,22 @@ def get_financial_entity(financial_id: int= Path(..., ge=1)):
     }
 
 # TODO chequear
-@app.get("/users/transactions")
-def get_user_transactions(credentials: HTTPBasicCredentials = Depends(security)):
+@app.get("/users/{user_id}/transactions")
+def get_user_transactions(user_id: int = Path(..., title="User ID", ge=1), credentials: HTTPBasicCredentials = Depends(security)):
     email = credentials.username
     password = credentials.password
-    user_id, _ = _validate_credentials(email, password)
+    user_id_credentials, _ = _validate_credentials(email, password)
 
-    transactions = collection.find({"userId_from": user_id})
+    if user_id_credentials != user_id:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    transactions = list(collection.find({"userId_from": user_id}))
 
     if transactions is None:
-        HTTPException(status_code=404, detail="This user has not made any transactions yet")
+        raise HTTPException(status_code=404, detail="This user has not made any transactions yet")
+
+    for transaction in transactions:
+        transaction["_id"] = str(transaction["_id"])
 
     return {"transactions": transactions}
 
@@ -322,7 +281,7 @@ def delete_financial_entity(financial_id: int= Path(..., ge=1)):
 """    
 
 @app.delete("/keys/{afk_key}")
-def delete_afk_key(afk_key: str = Path(...), credentials: HTTPBasicCredentials = Depends(security)):
+def delete_afk_key(afk_key: str = Path(..., title="AFK key", min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
     email = credentials.username
     password = credentials.password
     user_id, _ = _validate_credentials(email, password)
@@ -337,7 +296,7 @@ def delete_afk_key(afk_key: str = Path(...), credentials: HTTPBasicCredentials =
     if response.status_code == 200:
         #Si se pudo desvincular en el banco, borramos la clave
         _delete_afk_key(afk_key)
-        return {"message": "AFK key deleted successfully"}
+        return {"message": response.json()['message']}
 
 @app.on_event("shutdown")
 async def shutdown_event():
