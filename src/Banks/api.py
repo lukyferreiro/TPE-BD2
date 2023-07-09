@@ -130,7 +130,7 @@ def link_afk_key_to_account(putLink: PutLink):
 
 # Endpoint para desvincular una AFK key a una cuenta
 @app.put("/accounts/account/unlink")
-def unlink_afk_key_to_account(putUnlink: PutLink):
+def unlink_afk_key_to_account(putUnlink: PutUnlink):
     _check_account_exists_by_key(putUnlink.afk_key)
 
     query = "UPDATE accounts SET afk_key = %(afk_key_to_set)s WHERE afk_key = %(afk_key)s"

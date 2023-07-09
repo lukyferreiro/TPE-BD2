@@ -1,4 +1,4 @@
-from pydantic import BaseModel, constr
+from pydantic import BaseModel, constr, EmailStr
 import datetime
 
 EMAIL_REGEX=r'^[\w\.-]{0,64}@[\w\.-]+\.\w{0,255}$'
@@ -8,7 +8,7 @@ CBU_REGEX = r"^[0-9]{22}$"
 class PostUser(BaseModel):
     name: str
     password: str
-    email: constr(regex = EMAIL_REGEX)
+    email: EmailStr
     isBusiness: bool
 
 class PostFinancialEntity(BaseModel):
@@ -18,8 +18,8 @@ class PostFinancialEntity(BaseModel):
 
 class PostAfkKey(BaseModel):
     value: str
-    keyType: constr(regex=AFK_KEY_TYPE_REGEX)
-    cbu: constr(regex=CBU_REGEX)
+    keyType: constr(pattern=AFK_KEY_TYPE_REGEX)
+    cbu: constr(pattern=CBU_REGEX)
 
 class PostTransaction(BaseModel):
     afk_key_from: str

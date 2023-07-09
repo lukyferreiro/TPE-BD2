@@ -79,6 +79,9 @@ def create_key(afkKey: PostAfkKey, user_id: int = Query(..., ge=1)):
 
     query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s"
     values = {"user_id": user_id}
+
+    cursor = connection.cursor()
+
     cursor.execute(query, values)
     cant_keys = cursor.fetchone()[0]
 
@@ -88,13 +91,18 @@ def create_key(afkKey: PostAfkKey, user_id: int = Query(..., ge=1)):
         cursor.execute(query, values)
         connection.commit()
 
-        url = f"{result_finacial_entity[2]}/accounts/account/link"
+        url = f"{result_finacial_entity[2]}accounts/account/link"
         print(url)
         body = {
             'afk_key': afkKey.value,
             'cbu': afkKey.cbu
         }
-        response = requests.put(url=url, body=body)
+        print(body)
+        headers = {
+            'accept': application/json,
+            'Content-Type': application/json
+        }
+        response = requests.put(url, json=body, headers=headers)
         print(response)
         print(response.status_code)
 
@@ -280,9 +288,9 @@ def delete_afk_key(afk_key: str = Path(...)):
     url = f"{result_financial_entity[2]}/accounts/account/unlink"
     print(url)
     body = {
-        'afk_key': value,
+        "afk_key": afk_key,
     }
-    response = requests.put(url=url, body=body)
+    response = requests.put(url=url, json=body)
 
     if response.status_code == 200:
         #Si se pudo desvincular en el banco, borramos la clave

@@ -8,7 +8,7 @@ class PostAmount(BaseModel):
 
 class PutLink(BaseModel):
     afk_key: str
-    cbu: constr(regex=CBU_REGEX)
+    cbu: constr(pattern=CBU_REGEX)
 
 class PutUnlink(BaseModel):
     afk_key: str
