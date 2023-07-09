@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pip install fastapi uvicorn psycopg2 pymongo pydantic
+pip install fastapi uvicorn psycopg2 pymongo pydantic pydantic[email] requests
 
 #-------------------PostgreSQL Container-------------------
 POSTGRES_CONTAINER_NAME="afk-system-postgres"
@@ -51,7 +51,7 @@ sleep 5
   );"
 
   # TODO: Modify according to your codespace
-  API_LINK_1="https://rgomezkiss-refactored-engine-v56gjqgq6xg3w9g6-8001.preview.app.github.dev/"
+  API_LINK_1="https://lukyferreiro-ideal-acorn-7w67j4x4v4xhrrjr-8001.preview.app.github.dev"
   SQL_INSERT_FINANCIAL_ENTITY_1="INSERT INTO financialEntities (financialId, name, apiLink) VALUES ('1111111', 'Santander', '$API_LINK_1')"
 
   API_LINK_2="..."

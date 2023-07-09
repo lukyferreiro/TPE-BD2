@@ -126,7 +126,7 @@ def link_afk_key_to_account(putLink: PutLink):
     values = {"afk_key": putLink.afk_key, "cbu": putLink.cbu}
     cursor.execute(query, values)
     connection.commit()
-    return {"message": "AFK key successfully linked"}
+    return {"message": "AFK key linked successfully"}
 
 # Endpoint para desvincular una AFK key a una cuenta
 @app.put("/accounts/account/unlink")
@@ -137,7 +137,7 @@ def unlink_afk_key_to_account(putUnlink: PutUnlink):
     values = {"afk_key_to_set": None, "afk_key": putUnlink.afk_key}
     cursor.execute(query, values)
     connection.commit()
-    return {"message": "AFK key successfully unlinked"}
+    return {"message": "AFK key unlinked successfully"}
 
 
 #-----------------------------DELETE-----------------------------
@@ -151,7 +151,7 @@ def delete_account(cbu: str = Path(..., regex=CBU_REGEX)):
     query = "DELETE FROM accounts WHERE cbu = %(cbu)s"
     cursor.execute(query, {"cbu": cbu})
     connection.commit()
-    return {"message": "Account successfully deleted"}
+    return {"message": "Account deleted successfully"}
 """
 
 @app.on_event("shutdown")
