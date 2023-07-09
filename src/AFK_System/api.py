@@ -8,6 +8,9 @@ import hashlib
 import requests
 import psycopg2
 from pydantic import EmailStr, constr, Field
+from datetime import datetime
+import pytz
+
 
 app = FastAPI()
 security = HTTPBasic()
@@ -112,14 +115,37 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
 
         if response_to.status_code == 200:
             # TODO guardar toda la info en Mongo
+            argentina_tz = pytz.timezone('America/Argentina/Buenos_Aires')
+            current_datetime = datetime.now()
+            current_datetime = current_datetime.astimezone(argentina_tz)
+            formatted_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+            transaction_data = {
+                "to": postTransaction.afk_key_to,
+                "from": postTransaction.afk_key_to,
+                "amount": 100.0,
+                "date": formatted_datetime,
+                "user_id": user_id_from
+            }       
+            result = collection.insert_one(transaction_data)
+            if result.inserted_id:
+                print("Transacción insertada con éxito. ObjectID:", result.inserted_id)
+            else:
+                print("Error al insertar la transacción.")
 
             return {"message": "Transaction completed successfully"}
         else: 
-            # TODO ver que se hace
+            # Si falla la segunda transacción, le devuelvo al primer usuario su dinero
+            url_from = f"{apiLink_from[2]}/accounts/account"
+            body_from = {
+                'afk_key': f"{apiLink_from}",
+                'amount': float(postTransaction.amount)
+            }
+            response_from = requests.post(url_from, json=body_from)
             pass
 
     else :
-        # TODO ver que se hace
+        # TODO ver que se hace. Enviar mensaje de que transacción falló
         pass
 
 
@@ -254,7 +280,7 @@ def get_user_transactions(credentials: HTTPBasicCredentials = Depends(security))
     transactions = collection.find({"userId_from": user_id})
 
     if transactions is None:
-        HTTPException(status_code=404, detail="This user has not make any transaction")
+        HTTPException(status_code=404, detail="This user has not made any transactions yet")
 
     return {"transactions": transactions}
 
