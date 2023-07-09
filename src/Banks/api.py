@@ -108,6 +108,14 @@ def link_afk_key_to_account(putLink: PutLink):
     if result != 0:
         raise HTTPException(status_code=409, detail="AFK key already linked")
 
+    query = "SELECT afk_key FROM accounts WHERE cbu = %(cbu)s"
+    values = {"cbu": putLink.cbu}
+    cursor.execute(query, values)
+    result = cursor.fetchone()[0]
+
+    if result != None:
+        raise HTTPException(status_code=409, detail="Account already has an AFK key linked")
+
     query = "UPDATE accounts SET afk_key = %(afk_key)s WHERE cbu = %(cbu)s"
     values = {"afk_key": putLink.afk_key, "cbu": putLink.cbu}
     cursor.execute(query, values)

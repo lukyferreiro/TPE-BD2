@@ -48,8 +48,9 @@ def _check_relation_user_key(user_id: int, afk_key: str):
     values = {"user_id": user_id, "afk_key": afk_key}
     cursor = connection.cursor()
     cursor.execute(query, values)
-    results = cursor.fetchall()
-    if len(results) == 0:
+    result = cursor.fetchone()[0]
+
+    if result == 0:
         raise HTTPException(status_code=400, detail="Invalid operation")
 
 def _get_api_link_from_afk_key(afk_key: str, who: str):
