@@ -7,3 +7,5 @@ connection = psycopg2.connect(
     user="postgres",
     password="my_password"
 )
+
+cursor = connection.cursor()

@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Path, Query, HTTPException, Depends
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from models import *
-from postgre_utils import *
-from mongo_utils import *
+from models import PostUser, PostFinancialEntity, PostAfkKey, PostTransaction, PutUser
+from postgre_utils import connection, cursor
+from mongo_utils import client, db, collection
+from api_utils import _check_user_exists, _check_user_exists_by_email, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _unlink_key_from_account, _delete_user_from_id
 import hashlib
 import requests
 import psycopg2
@@ -11,86 +12,12 @@ from pydantic import EmailStr, constr, Field
 app = FastAPI()
 security = HTTPBasic()
 
-def _check_user_exists(user_id: int):
-    query = "SELECT userId, name, email, isBusiness FROM users WHERE userId = %(user_id)s"
-    values = {"user_id": user_id}
-    cursor = connection.cursor()
-    cursor.execute(query, values)
-    result = cursor.fetchone()
-    if result is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return result
-
-def _check_user_exists_by_email(email: str):
-    query = "SELECT userId, password, isBusiness FROM users WHERE email = %(email)s"
-    values = {"email": email}
-    cursor = connection.cursor()
-    cursor.execute(query, values)
-    result = cursor.fetchone()
-    if result is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return result
-
-def _check_financial_entity_exists(financial_id: str):
-    query = "SELECT financialId, name, apiLink FROM financialEntities WHERE financialId = %(financial_id)s"
-    values = {"financial_id": financial_id}
-    cursor = connection.cursor()
-    cursor.execute(query, values)
-    result = cursor.fetchone()
-    if result is None:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return result
-
-def _check_afk_key_exists(afk_key: str):
-    query = "SELECT value, type, userId, financialId FROM afkKeys WHERE value = %(afk_key)s"
-    values = {"afk_key": afk_key}
-    cursor = connection.cursor()
-    cursor.execute(query, values)
-    result = cursor.fetchone()
-    if result is None:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return result
-
-def _check_relation_user_key(user_id: int, afk_key: str):
-    query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s AND value = %(afk_key)s"
-    values = {"user_id": user_id, "afk_key": afk_key}
-    cursor = connection.cursor()
-    cursor.execute(query, values)
-    results = cursor.fetchall()
-    if len(results) == 0:
-        raise HTTPException(status_code=400, detail="Invalid operation")
-
-def _get_api_link_from_afk_key(afk_key: str, who: str):
-    query = """ 
-        SELECT financialEntities.apiLink FROM afkKeys JOIN financialEntities 
-        ON afkKeys.finacialId = financialEntities.finacialId WHERE afkKeys.value = %(afk_key)s
-    """
-    values = {"afk_key": afk_key}
-    cursor = connection.cursor()
-    cursor.execute(query, values)
-    result = cursor.fetchone()
-
-    if result is None:
-        raise HTTPException(status_code=404, detail=f"AFK key {who} not found")
-
-    return result[0]
-
-def _validate_credentials(email: str, password: str):
-    result_user = _check_user_exists_by_email(email)
-
-    hashed_password = hashlib.sha256(password.encode()).hexdigest()
-    if result_user[1] == hashed_password:
-        return result_user[0], result_user[2]
-
-    raise HTTPException(status_code=401, detail="Invalid credentials")
-
 #-----------------------------POST-----------------------------
 
 @app.post("/users")
 def create_user(user: PostUser):
     query = "SELECT COUNT(*) FROM users WHERE email = %(email)s"
     values = {"email": user.email}
-    cursor = connection.cursor()
     cursor.execute(query, values)
     result = cursor.fetchone()[0]
 
@@ -125,8 +52,6 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
 
     query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s"
     values = {"user_id": user_id}
-
-    cursor = connection.cursor()
 
     cursor.execute(query, values)
     cant_keys = cursor.fetchone()[0]
@@ -204,7 +129,6 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
 @app.get("/users")
 def get_all_users():
     query = "SELECT userId, name, email, isBusiness FROM users"
-    cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
 
@@ -228,7 +152,6 @@ def get_all_users():
 @app.get("/financialEntities")
 def get_all_financial_entities():
     query = "SELECT financialId, name, apiLink FROM financialEntities"
-    cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
 
@@ -255,7 +178,6 @@ def get_user(user_id: int = Path(..., ge=1)):
         FROM users LEFT JOIN afkKeys ON users.userId = afkKeys.userId WHERE users.userId = %(user_id)s
     """
     values = {"user_id": user_id}
-    cursor = connection.cursor()
     cursor.execute(query, values)
     results = cursor.fetchall()
 
@@ -346,7 +268,6 @@ def edit_user(putUser: PutUser, credentials: HTTPBasicCredentials = Depends(secu
 
     query = "UPDATE users SET name = %(name)s, isBusiness = %(isBusiness)s  WHERE userId = %(user_id)s"
     values = {"name": putUser.name, "isBusiness": putUser.isBusiness, "user_id": user_id}
-    cursor = connection.cursor()
     cursor.execute(query, values)
     connection.commit()
     return {"message": "User updated successfully"}
@@ -357,12 +278,29 @@ def edit_user(putUser: PutUser, credentials: HTTPBasicCredentials = Depends(secu
 def delete_user(user_id: int= Path(..., ge=1)):
     _check_user_exists(user_id)
 
-    query = "DELETE FROM users WHERE userId = %(user_id)s"
-    cursor = connection.cursor()
+    query = """
+        SELECT afkKeys.value, financialEntities.apiLink
+        FROM (users JOIN afkKeys ON users.userId = afkKeys.userId) JOIN financialEntities ON afkKeys.financialId = financialEntities.apiLink
+        WHERE users.userId = %(user_id)s
+    """
     values = {"user_id": user_id}
     cursor.execute(query, values)
-    connection.commit()
-    return {"message": "User deleted successfully"}
+    results = cursor.fetchall()
+
+    if results is None:
+        _delete_user_from_id(user_id)
+        return {"message": "User deleted successfully"}
+    else :
+        # Al borrar el usuario, primero desvinculamos todas las claves de sus bancos
+        for row in results:
+            response = _unlink_key_from_account(row[1], row[0])
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail=f"Error while unlinking '{row[0]}' AFK key from '{row[1]}' entity")
+                
+            # TODO habria que rollbackear si falla algun unlink de la clave
+            
+        _delete_user_from_id(user_id)
+        return {"message": "User deleted successfully"}
 
 """
 @app.delete("/financialEntities/{financial_id}")
@@ -370,7 +308,6 @@ def delete_financial_entity(financial_id: int= Path(..., ge=1)):
     _check_financial_entity_exists(financial_id)
 
     query = "DELETE FROM financialEntities WHERE financialId = %(financial_id)s"
-    cursor = connection.cursor()
     values = {"financial_id": financial_id}
     cursor.execute(query, values)
     connection.commit()
@@ -388,18 +325,11 @@ def delete_afk_key(afk_key: str = Path(...), credentials: HTTPBasicCredentials =
     # Chequeamos que la clave le pertenezca al usuario que se autentica
     _check_relation_user_key(user_id, afk_key)
 
-    url = f"{result_financial_entity[2]}/accounts/account/unlink"
-    body = {'afk_key': afk_key}
-    
-    try:
-        response = requests.put(url=url, json=body)
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
+    response = _unlink_key_from_account(result_financial_entity[2], afk_key)
 
     if response.status_code == 200:
         #Si se pudo desvincular en el banco, borramos la clave
         query = "DELETE FROM afkKeys WHERE value = %(afk_key)s"
-        cursor = connection.cursor()
         values = {"afk_key": afk_key}
         cursor.execute(query, values)
         connection.commit()

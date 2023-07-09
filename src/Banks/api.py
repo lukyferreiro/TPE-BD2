@@ -146,7 +146,7 @@ def unlink_afk_key_to_account(putUnlink: PutUnlink):
 # Endpoint para eliminar una cuenta
 @app.delete("/accounts/account/{cbu}")
 def delete_account(cbu: str = Path(..., regex=CBU_REGEX)):
-    _check_account_exists_by_cby(cbu)
+    _check_account_exists_by_cbu(cbu)
 
     query = "DELETE FROM accounts WHERE cbu = %(cbu)s"
     cursor.execute(query, {"cbu": cbu})
