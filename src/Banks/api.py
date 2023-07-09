@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Path, Query, HTTPException
 from postgre_utils import *
+from models import *
 import random
 
 app = FastAPI()
@@ -10,7 +11,6 @@ Un CBU esta formado por 22 digitos donde:
 -- Los siguientes 4 son el codigo de sucursal
 -- Los ultimos 15 son el numero de cuenta
 """
-CBU_REGEX = r"^[0-9]{22}$"
 
 def _check_account_exists_by_cbu(cbu: str):
     query = "SELECT cbu, username, balance, afk_key FROM accounts WHERE cbu = %(cbu)s"

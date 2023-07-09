@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pip install fastapi uvicorn psycopg2 pymongo pydantic requests
+pip install fastapi uvicorn psycopg2 pymongo pydantic
 
 #-------------------PostgreSQL Container-------------------
 POSTGRES_CONTAINER_NAME="afk-system-postgres"
@@ -35,30 +35,30 @@ sleep 5
     email TEXT NOT NULL UNIQUE, \
     isBusiness BOOLEAN NOT NULL DEFAULT FALSE \
   );"
-  SQL_CREATE_TABLE_2="CREATE TABLE IF NOT EXISTS financial_entity ( \
+  SQL_CREATE_TABLE_2="CREATE TABLE IF NOT EXISTS financialEntities ( \
     financialId VARCHAR(7) NOT NULL PRIMARY KEY CHECK (LENGTH(financialId) = 7), \
     name TEXT NOT NULL, \
     apiLink TEXT NOT NULL \
   );"
-  SQL_CREATE_TABLE_3="CREATE TABLE IF NOT EXISTS afk_keys ( \
+  SQL_CREATE_TABLE_3="CREATE TABLE IF NOT EXISTS afkKeys ( \
     userId INT NOT NULL, \
     financialId VARCHAR(7) NOT NULL CHECK (LENGTH(financialId) = 7), \
     value TEXT NOT NULL, \
     type TEXT NOT NULL CHECK(type = 'email' OR type = 'cuit' OR type = 'phone_number' OR type = 'random'), \
     UNIQUE(type, value), \
     FOREIGN KEY (userId) REFERENCES users (userId) ON DELETE CASCADE, \
-    FOREIGN KEY (financialId) REFERENCES financial_entity (financialId) ON DELETE CASCADE \
+    FOREIGN KEY (financialId) REFERENCES financialEntities (financialId) ON DELETE CASCADE \
   );"
 
   # TODO: Modify according to your codespace
-  API_LINK_1="https://lukyferreiro-urban-dollop-9wr6g4xxrxph7vrq-8001.preview.app.github.dev"
-  SQL_INSERT_FINANCIAL_ENTITY_1="INSERT INTO financial_entity (financialId, name, apiLink) VALUES (1111111, 'Santander', '$API_LINK_1')"
+  API_LINK_1="https://rgomezkiss-improved-sniffle-rx4r5prp7r63wxgq-8001.preview.app.github.dev/"
+  SQL_INSERT_FINANCIAL_ENTITY_1="INSERT INTO financialEntities (financialId, name, apiLink) VALUES (1111111, 'Santander', '$API_LINK_1')"
 
   API_LINK_2="..."
-  SQL_INSERT_FINANCIAL_ENTITY_2="INSERT INTO financial_entity (financialId, name, apiLink) VALUES (2222222, 'BBVA', '$API_LINK_2')"
+  SQL_INSERT_FINANCIAL_ENTITY_2="INSERT INTO financialEntities (financialId, name, apiLink) VALUES (2222222, 'BBVA', '$API_LINK_2')"
 
   API_LINK_3="..."
-  SQL_INSERT_FINANCIAL_ENTITY_3="INSERT INTO financial_entity (financialId, name, apiLink) VALUES (3333333, 'Galicia', '$API_LINK_3')"
+  SQL_INSERT_FINANCIAL_ENTITY_3="INSERT INTO financialEntities (financialId, name, apiLink) VALUES (3333333, 'Galicia', '$API_LINK_3')"
 
 
   # Execute the SQL statements inside the container

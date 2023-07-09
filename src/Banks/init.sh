@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pip install fastapi uvicorn psycopg2 pymongo
+pip install fastapi uvicorn psycopg2 pymongo pydantic
 
 #-------------------PostgreSQL Container-------------------
 

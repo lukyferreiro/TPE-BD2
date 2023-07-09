@@ -5,6 +5,7 @@ from mongo_utils import *
 import hashlib
 from functools import reduce
 import requests
+import psycopg2
 from pydantic import EmailStr, constr, Field
 
 app = FastAPI()
@@ -19,7 +20,7 @@ def _check_user_exists(user_id: int):
     return result
 
 def _check_financial_entity_exists(financial_id: int):
-    query = "SELECT financialId, name, apiLink FROM financial_entity WHERE financialId = %(financial_id)s"
+    query = "SELECT financialId, name, apiLink FROM financialEntities WHERE financialId = %(financial_id)s"
     values = {"financial_id": financial_id}
     cursor.execute(query, values)
     result = cursor.fetchone()
@@ -28,7 +29,7 @@ def _check_financial_entity_exists(financial_id: int):
     return result
 
 def _check_afk_key_exits(afk_key: str):
-    query = "SELECT value, type, userId, financialId FROM afk_keys WHERE value = %(afk_key)s"
+    query = "SELECT value, type, userId, financialId FROM afkKeys WHERE value = %(afk_key)s"
     values = {"afk_key": afk_key}
     cursor.execute(query, values)
     result = cursor.fetchone()
@@ -57,7 +58,7 @@ def create_user(user: PostUser):
 """
 @app.post("/financialEntities")
 def create_financial_entity(financialEntity: PostFinancialEntity):
-    query = "INSERT INTO financial_entity (financialId, name, apiLink) VALUES (%(id)s, %(name)s, %(apiLink)s)"
+    query = "INSERT INTO financialEntities (financialId, name, apiLink) VALUES (%(id)s, %(name)s, %(apiLink)s)"
     values = {"id": financialEntity.financialId, "name": financialEntity.name ,"apiLink": financialEntity.apiLink}
     cursor.execute(query, values)
     connection.commit()
@@ -66,8 +67,9 @@ def create_financial_entity(financialEntity: PostFinancialEntity):
 
 @app.post("/keys")
 def create_key(afkKey: PostAfkKey, user_id: int = Query(..., ge=1)):
-
     result_finacial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
+
+    print(result_finacial_entity)
 
     #TODO chequear que el CBU exista en el banco
     #...
@@ -75,13 +77,13 @@ def create_key(afkKey: PostAfkKey, user_id: int = Query(..., ge=1)):
     result_user = _check_user_exists(user_id)
     isBusiness = bool(result_user[3])
 
-    query = "SELECT COUNT(*) FROM afk_keys WHERE userId = %(user_id)s"
+    query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s"
     values = {"user_id": user_id}
     cursor.execute(query, values)
     cant_keys = cursor.fetchone()[0]
 
     if((not isBusiness and cant_keys < 5) or (isBusiness and cant_keys < 20)):
-        query = "INSERT INTO afk_keys (value, type, userId, financialId) VALUES (%(value)s, %(type)s, %(userId)s, %(financialId)s)"
+        query = "INSERT INTO afkKeys (value, type, userId, financialId) VALUES (%(value)s, %(type)s, %(userId)s, %(financialId)s)"
         values = {"value": afkKey.value, "type": afkKey.keyType, "userId": user_id, "financialId": result_finacial_entity[0]}
         cursor.execute(query, values)
         connection.commit()
@@ -98,7 +100,7 @@ def create_key(afkKey: PostAfkKey, user_id: int = Query(..., ge=1)):
 
         if response.status_code >= 400:
             # Rollbackeamos si falla el pedido al banco
-            query = "DELETE FROM afk_keys WHERE value = %(value)s"
+            query = "DELETE FROM afkKeys WHERE value = %(value)s"
             cursor = connection.cursor()
             values = {"value": value}
             cursor.execute(query, values)
@@ -111,7 +113,7 @@ def create_key(afkKey: PostAfkKey, user_id: int = Query(..., ge=1)):
         raise HTTPException(status_code=409, detail="You can not create more keys (5 for people and 20 for business)")
 
 @app.post("/users/{user_id}/transaction")
-def create_transaction(postTransaction: PostTransaction user_id: int= Path(..., ge=1)):
+def create_transaction(postTransaction: PostTransaction, user_id: int= Path(..., ge=1)):
     if (postTransaction.amount < 0):
         raise HTTPException(status_code=400, detail="Transfer amounts have to be positive")
 
@@ -146,7 +148,7 @@ def get_all_users():
 # Endpoint para obtener todas las cuentas
 @app.get("/financialEntities")
 def get_all_financial_entities():
-    query = "SELECT financialId, name, apiLink FROM financial_entity"
+    query = "SELECT financialId, name, apiLink FROM financialEntities"
     cursor.execute(query)
     result = cursor.fetchall()
 
@@ -168,9 +170,9 @@ def get_all_financial_entities():
 @app.get("/users/{user_id}")
 def get_user(user_id: int = Path(..., ge=1)):
     query = """
-        SELECT users.userId, users.name, users.email, users.isBusiness, afk_keys.keyId, afk_keys.value, afk_keys.type
+        SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.keyId, afkKeys.value, afkKeys.type
         FROM users
-        LEFT JOIN afk_keys ON users.userId = afk_keys.userId
+        LEFT JOIN afkKeys ON users.userId = afkKeys.userId
         WHERE users.userId = %(user_id)s
     """
     values = {"user_id": user_id}
@@ -262,7 +264,7 @@ def delete_user(user_id: int= Path(..., ge=1)):
 def delete_financial_entity(financial_id: int= Path(..., ge=1)):
     _check_financial_entity_exists(financial_id)
 
-    query = "DELETE FROM financial_entity WHERE financialId = %(financial_id)s"
+    query = "DELETE FROM financialEntities WHERE financialId = %(financial_id)s"
     cursor = connection.cursor()
     values = {"financial_id": financial_id}
     cursor.execute(query, values)
@@ -284,7 +286,7 @@ def delete_afk_key(afk_key: str = Path(...)):
 
     if response.status_code == 200:
         #Si se pudo desvincular en el banco, borramos la clave
-        query = "DELETE FROM afk_keys WHERE value = %(afk_key)s"
+        query = "DELETE FROM afkKeys WHERE value = %(afk_key)s"
         cursor = connection.cursor()
         values = {"afk_key": afk_key}
         cursor.execute(query, values)
