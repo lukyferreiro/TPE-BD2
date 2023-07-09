@@ -1,15 +1,11 @@
-from fastapi import FastAPI, Path, Query, HTTPException, Depends
+from fastapi import FastAPI, Path, HTTPException, Depends
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from models import PostUser, PostFinancialEntity, PostAfkKey, PostTransaction, PutUser
+from models import PostUser, PostAfkKey, PostTransaction, PutUser
 from postgre_utils import connection, cursor
-from mongo_utils import client, db, collection
-from pymongo.errors import PyMongoError
+from mongo_utils import collection
 from api_utils import _check_user_exists, _check_user_exists_by_email, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _delete_user_from_id, _delete_afk_key
 from bank_utils import _unlink_key_from_account, _link_key_from_account, _get_balance_from_account, _make_transaction
 import hashlib
-import requests
-from datetime import datetime
-import pytz
 
 app = FastAPI()
 security = HTTPBasic()
@@ -18,6 +14,8 @@ security = HTTPBasic()
 
 @app.post("/users")
 def create_user(user: PostUser):
+    "Endpoint para registrar un nuevo usuario"
+
     query = "SELECT COUNT(*) FROM users WHERE email = %(email)s"
     values = {"email": user.email}
     cursor.execute(query, values)
@@ -43,8 +41,10 @@ def create_financial_entity(financialEntity: PostFinancialEntity):
     return {"message": "Financial entity created successfully"}
 """
 
+
 @app.post("/keys")
 def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(security)):
+    "Endpoint para registrar una nueva clave"
 
     result_financial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
 
@@ -73,6 +73,8 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
 
 @app.post("/users/transactions")
 def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicCredentials = Depends(security)):
+    "Endpoint para crear una transaccion"
+
     email = credentials.username
     password = credentials.password
     user_id_from, _ = _validate_credentials(email, password)
@@ -92,9 +94,10 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
 
 #-----------------------------GET-----------------------------
 
-# Endpoint para obtener todas las cuentas
 @app.get("/users")
 def get_all_users():
+    "Endpoint para obtener todos los usuarios"
+
     query = "SELECT userId, name, email, isBusiness FROM users"
     cursor.execute(query)
     result = cursor.fetchall()
@@ -114,9 +117,10 @@ def get_all_users():
 
     return users
 
-# Endpoint para obtener todas las cuentas
 @app.get("/financialEntities")
 def get_all_financial_entities():
+    "Endpoint para obtener todas las entidades financieras"
+
     query = "SELECT financialId, name, apiLink FROM financialEntities"
     cursor.execute(query)
     result = cursor.fetchall()
@@ -135,9 +139,10 @@ def get_all_financial_entities():
 
     return financial_entities
 
-# Endpoint para obtener un usuario a partir de su ID
 @app.get("/users/{user_id}")
 def get_user(user_id: int = Path(..., title="User ID", ge=1)):
+    "Endpoint para obtener un usuario a partir de su ID"
+
     query = """
         SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value, afkKeys.type
         FROM users LEFT JOIN afkKeys ON users.userId = afkKeys.userId WHERE users.userId = %(user_id)s
@@ -167,9 +172,10 @@ def get_user(user_id: int = Path(..., title="User ID", ge=1)):
 
     return user
 
-# Endpoint para obtener el balance de un usuario a partir de su AFK key
 @app.get("/users/balance/{afk_key}")
 def get_balance(afk_key: str = Path(..., title="AFK key", min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
+    "Endpoint para obtener el balance de un usuario a partir de su AFK key"
+    
     email = credentials.username
     password = credentials.password
     _validate_credentials(email, password)
@@ -183,6 +189,8 @@ def get_balance(afk_key: str = Path(..., title="AFK key", min_length=1), credent
 
 @app.get("/keys/{afk_key}")
 def get_key(afk_key: str = Path(..., title="AFK key", min_length=1)):
+    "Endpoint que devuelve una clave AFK a partir de su valor"
+    
     result = _check_afk_key_exists(afk_key)
 
     return {
@@ -194,6 +202,8 @@ def get_key(afk_key: str = Path(..., title="AFK key", min_length=1)):
 
 @app.get("/financialEntities/{financial_id}")
 def get_financial_entity(financial_id: int= Path(..., title="Financial Entity ID", ge=1)):
+    "Endpoint que devuelve una entidad financiera a partir de su ID"
+    
     result = _check_financial_entity_exists(financial_id)
 
     return {
@@ -202,9 +212,10 @@ def get_financial_entity(financial_id: int= Path(..., title="Financial Entity ID
         "apiLink": result[2]
     }
 
-# TODO chequear
 @app.get("/users/{user_id}/transactions")
 def get_user_transactions(user_id: int = Path(..., title="User ID", ge=1), credentials: HTTPBasicCredentials = Depends(security)):
+    "Endpoint que devuelve todas las transacciones de un usuario"
+    
     email = credentials.username
     password = credentials.password
     user_id_credentials, _ = _validate_credentials(email, password)
@@ -212,7 +223,10 @@ def get_user_transactions(user_id: int = Path(..., title="User ID", ge=1), crede
     if user_id_credentials != user_id:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    transactions = list(collection.find({"userId_from": user_id}))
+    try:
+        transactions = list(collection.find({"userId_from": user_id}))
+    except pymongo.errors.PyMongoError as e:
+        raise HTTPException(status_code=500, detail="Could not retrieve transactions. Try again later")
 
     if transactions is None:
         raise HTTPException(status_code=404, detail="This user has not made any transactions yet")
@@ -226,6 +240,8 @@ def get_user_transactions(user_id: int = Path(..., title="User ID", ge=1), crede
 
 @app.put("/users")
 def edit_user(putUser: PutUser, credentials: HTTPBasicCredentials = Depends(security)):
+    "Endpoint para editar la informacion de un usuario"
+
     email = credentials.username
     password = credentials.password
     user_id, _ = _validate_credentials(email, password)
@@ -279,9 +295,11 @@ def delete_financial_entity(financial_id: int= Path(..., ge=1)):
     connection.commit()
     return {"message": "Financial entity deleted successfully"}
 """    
-
+ 
 @app.delete("/keys/{afk_key}")
 def delete_afk_key(afk_key: str = Path(..., title="AFK key", min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
+    "Endpoint para eliminar una clave AFK"
+    
     email = credentials.username
     password = credentials.password
     user_id, _ = _validate_credentials(email, password)

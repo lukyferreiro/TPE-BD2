@@ -81,7 +81,8 @@ def _make_transaction(apiLink_from: str, apiLink_to: str, amount: float, afk_key
                 result = collection.insert_one(transaction_data)
                 print("Transacción insertada con éxito. ObjectID:", result.inserted_id)
             except PyMongoError as e:
-                print("Error al insertar documento:", e)
+                #TODO habria que ver que pasa si falla el registrar la transaccion cuando se vuelve a registrar
+                raise HTTPException(status_code=500, detail="Could not register the transaction.")
 
         else: 
             # Si falla la segunda transacción, le devuelvo al primer usuario su dinero
