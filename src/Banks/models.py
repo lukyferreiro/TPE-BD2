@@ -13,3 +13,6 @@ class PutLink(BaseModel):
 class PutUnlink(BaseModel):
     afk_key: str
 
+class GetAccountExist(BaseModel):
+    cbu: constr(pattern=CBU_REGEX)
+

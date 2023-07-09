@@ -4,7 +4,6 @@ from models import *
 from postgre_utils import *
 from mongo_utils import *
 import hashlib
-from functools import reduce
 import requests
 import psycopg2
 from pydantic import EmailStr, constr, Field
@@ -15,24 +14,27 @@ security = HTTPBasic()
 def _check_user_exists(user_id: int):
     query = "SELECT userId, name, email, isBusiness FROM users WHERE userId = %(user_id)s"
     values = {"user_id": user_id}
+    cursor = connection.cursor()
     cursor.execute(query, values)
     result = cursor.fetchone()
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     return result
 
-def _check_user_exists_by_email(email: int):
+def _check_user_exists_by_email(email: str):
     query = "SELECT userId, password, isBusiness FROM users WHERE email = %(email)s"
     values = {"email": email}
+    cursor = connection.cursor()
     cursor.execute(query, values)
     result = cursor.fetchone()
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     return result
 
-def _check_financial_entity_exists(financial_id: int):
+def _check_financial_entity_exists(financial_id: str):
     query = "SELECT financialId, name, apiLink FROM financialEntities WHERE financialId = %(financial_id)s"
     values = {"financial_id": financial_id}
+    cursor = connection.cursor()
     cursor.execute(query, values)
     result = cursor.fetchone()
     if result is None:
@@ -42,11 +44,21 @@ def _check_financial_entity_exists(financial_id: int):
 def _check_afk_key_exists(afk_key: str):
     query = "SELECT value, type, userId, financialId FROM afkKeys WHERE value = %(afk_key)s"
     values = {"afk_key": afk_key}
+    cursor = connection.cursor()
     cursor.execute(query, values)
     result = cursor.fetchone()
     if result is None:
         raise HTTPException(status_code=404, detail="Key not found")
     return result
+
+def _check_relation_user_key(user_id: int, afk_key: str):
+    query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s AND value = %(afk_key)s"
+    values = {"user_id": user_id, "afk_key": afk_key}
+    cursor = connection.cursor()
+    cursor.execute(query, values)
+    results = cursor.fetchall()
+    if len(results) == 0:
+        raise HTTPException(status_code=400, detail="Invalid operation")
 
 def _get_api_link_from_afk_key(afk_key: str, who: str):
     query = """ 
@@ -54,6 +66,7 @@ def _get_api_link_from_afk_key(afk_key: str, who: str):
         ON afkKeys.finacialId = financialEntities.finacialId WHERE afkKeys.value = %(afk_key)s
     """
     values = {"afk_key": afk_key}
+    cursor = connection.cursor()
     cursor.execute(query, values)
     result = cursor.fetchone()
 
@@ -76,7 +89,9 @@ def _validate_credentials(email: str, password: str):
 @app.post("/users")
 def create_user(user: PostUser):
     query = "SELECT COUNT(*) FROM users WHERE email = %(email)s"
-    cursor.execute(query, {"email": user.email})
+    values = {"email": user.email}
+    cursor = connection.cursor()
+    cursor.execute(query, values)
     result = cursor.fetchone()[0]
 
     if result != 0:
@@ -104,9 +119,6 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
 
     result_finacial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
 
-    #TODO chequear que el CBU exista en el banco
-    #...
-
     email = credentials.username
     password = credentials.password
     user_id, isBusiness = _validate_credentials(email, password)
@@ -130,19 +142,19 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
             'afk_key': f"{afkKey.value}",
             'cbu': f"{afkKey.cbu}"
         }
-        response = requests.put(url, json=body)
 
-        if response.status_code >= 400:
+        try:
+            response = requests.put(url, json=body)
+        except requests.exceptions.RequestException as e:
             # Rollbackeamos si falla el pedido al banco
             query = "DELETE FROM afkKeys WHERE value = %(value)s"
-            cursor = connection.cursor()
             values = {"value": afkKey.value}
             cursor.execute(query, values)
             connection.commit()
-
             raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
-
+        
         return {"message": "AFK key created successfully"}
+
     else:
         raise HTTPException(status_code=409, detail="You can not create more keys (5 for people and 20 for business)")
 
@@ -192,6 +204,7 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
 @app.get("/users")
 def get_all_users():
     query = "SELECT userId, name, email, isBusiness FROM users"
+    cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
 
@@ -215,6 +228,7 @@ def get_all_users():
 @app.get("/financialEntities")
 def get_all_financial_entities():
     query = "SELECT financialId, name, apiLink FROM financialEntities"
+    cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
 
@@ -233,6 +247,7 @@ def get_all_financial_entities():
 
     return financial_entities
 
+# Endpoint para obtener un usuario a partir de su ID
 @app.get("/users/{user_id}")
 def get_user(user_id: int = Path(..., ge=1)):
     query = """
@@ -240,6 +255,7 @@ def get_user(user_id: int = Path(..., ge=1)):
         FROM users LEFT JOIN afkKeys ON users.userId = afkKeys.userId WHERE users.userId = %(user_id)s
     """
     values = {"user_id": user_id}
+    cursor = connection.cursor()
     cursor.execute(query, values)
     results = cursor.fetchall()
 
@@ -263,6 +279,27 @@ def get_user(user_id: int = Path(..., ge=1)):
             user["keys"].append(key)
 
     return user
+
+# Endpoint para obtener el balance de un usuario a partir de su AFK key
+@app.get("/users/balance/{afk_key}")
+def get_balance(afk_key: str = Path(..., min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
+    email = credentials.username
+    password = credentials.password
+    _validate_credentials(email, password)
+
+    result_key = _check_afk_key_exists(afk_key)
+    result_finacial_entity = _check_financial_entity_exists(result_key[3])
+
+    url = f"{result_finacial_entity[2]}/accounts/account/balance"
+    params = {'afk_key': afk_key}
+
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status() 
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail="Error al procesar la solicitud")
+
+    return {"balance": float(response.json()['balance'])}
 
 @app.get("/keys/{afk_key}")
 def get_key(afk_key: str = Path(...)):
@@ -309,6 +346,7 @@ def edit_user(putUser: PutUser, credentials: HTTPBasicCredentials = Depends(secu
 
     query = "UPDATE users SET name = %(name)s, isBusiness = %(isBusiness)s  WHERE userId = %(user_id)s"
     values = {"name": putUser.name, "isBusiness": putUser.isBusiness, "user_id": user_id}
+    cursor = connection.cursor()
     cursor.execute(query, values)
     connection.commit()
     return {"message": "User updated successfully"}
@@ -347,18 +385,16 @@ def delete_afk_key(afk_key: str = Path(...), credentials: HTTPBasicCredentials =
     result_key = _check_afk_key_exists(afk_key)
     result_financial_entity = _check_financial_entity_exists(result_key[3])
 
-    # Chequeamos que el la clave le pertenezca al usuario que se autentica
-    query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s AND value = %(afk_key)s"
-    values = {"user_id": user_id, "afk_key": afk_key}
-    cursor = connection.cursor()
-    cursor.execute(query, values)
-    results = cursor.fetchall()
-
-    if len(results) == 0:
-        raise HTTPException(status_code=400, detail="Invalid operation")
+    # Chequeamos que la clave le pertenezca al usuario que se autentica
+    _check_relation_user_key(user_id, afk_key)
 
     url = f"{result_financial_entity[2]}/accounts/account/unlink"
-    response = requests.put(url=url, json={'afk_key': afk_key})
+    body = {'afk_key': afk_key}
+    
+    try:
+        response = requests.put(url=url, json=body)
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
 
     if response.status_code == 200:
         #Si se pudo desvincular en el banco, borramos la clave
@@ -368,11 +404,8 @@ def delete_afk_key(afk_key: str = Path(...), credentials: HTTPBasicCredentials =
         cursor.execute(query, values)
         connection.commit()
         return {"message": "AFK key deleted successfully"}
-    else:
-        raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])    
-
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    cursor.close()
+    #cursor.close()
     connection.close()
