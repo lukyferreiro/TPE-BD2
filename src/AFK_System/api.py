@@ -14,7 +14,7 @@ security = HTTPBasic()
 
 @app.post("/users")
 def create_user(user: PostUser):
-    "Endpoint para registrar un nuevo usuario"
+    """Endpoint para registrar un nuevo usuario"""
 
     query = "SELECT COUNT(*) FROM users WHERE email = %(email)s"
     values = {"email": user.email}
@@ -44,7 +44,7 @@ def create_financial_entity(financialEntity: PostFinancialEntity):
 
 @app.post("/keys")
 def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(security)):
-    "Endpoint para registrar una nueva clave"
+    """Endpoint para registrar una nueva clave"""
 
     result_financial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
 
@@ -73,14 +73,20 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
 
 @app.post("/users/transactions")
 def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicCredentials = Depends(security)):
-    "Endpoint para crear una transaccion"
+    """Endpoint para crear una transaccion"""
+
+    if (postTransaction.amount < 0):
+        raise HTTPException(status_code=400, detail="Transfer amounts have to be positive")
+
+    if (postTransaction.afk_key_from == postTransaction.afk_key_to):
+        raise HTTPException(status_code=409, detail="Can not make transactions to the same account")
 
     email = credentials.username
     password = credentials.password
     user_id_from, _ = _validate_credentials(email, password)
 
-    if (postTransaction.amount < 0):
-        raise HTTPException(status_code=400, detail="Transfer amounts have to be positive")
+    # Chequeamos que la clave le pertenezca al usuario que se autentica
+    _check_relation_user_key(user_id_from, postTransaction.afk_key_from)
 
     apiLink_from = _get_api_link_from_afk_key(postTransaction.afk_key_from, "from")
     apiLink_to = _get_api_link_from_afk_key(postTransaction.afk_key_to, "to")
@@ -96,7 +102,7 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
 
 @app.get("/users")
 def get_all_users():
-    "Endpoint para obtener todos los usuarios"
+    """Endpoint para obtener todos los usuarios"""
 
     query = "SELECT userId, name, email, isBusiness FROM users"
     cursor.execute(query)
@@ -119,7 +125,7 @@ def get_all_users():
 
 @app.get("/financialEntities")
 def get_all_financial_entities():
-    "Endpoint para obtener todas las entidades financieras"
+    """Endpoint para obtener todas las entidades financieras"""
 
     query = "SELECT financialId, name, apiLink FROM financialEntities"
     cursor.execute(query)
@@ -141,7 +147,7 @@ def get_all_financial_entities():
 
 @app.get("/users/{user_id}")
 def get_user(user_id: int = Path(..., title="User ID", ge=1)):
-    "Endpoint para obtener un usuario a partir de su ID"
+    """Endpoint para obtener un usuario a partir de su ID"""
 
     query = """
         SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value, afkKeys.type
@@ -174,7 +180,7 @@ def get_user(user_id: int = Path(..., title="User ID", ge=1)):
 
 @app.get("/users/balance/{afk_key}")
 def get_balance(afk_key: str = Path(..., title="AFK key", min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
-    "Endpoint para obtener el balance de un usuario a partir de su AFK key"
+    """Endpoint para obtener el balance de un usuario a partir de su AFK key"""
     
     email = credentials.username
     password = credentials.password
@@ -189,7 +195,7 @@ def get_balance(afk_key: str = Path(..., title="AFK key", min_length=1), credent
 
 @app.get("/keys/{afk_key}")
 def get_key(afk_key: str = Path(..., title="AFK key", min_length=1)):
-    "Endpoint que devuelve una clave AFK a partir de su valor"
+    """Endpoint que devuelve una clave AFK a partir de su valor"""
     
     result = _check_afk_key_exists(afk_key)
 
@@ -202,7 +208,7 @@ def get_key(afk_key: str = Path(..., title="AFK key", min_length=1)):
 
 @app.get("/financialEntities/{financial_id}")
 def get_financial_entity(financial_id: int= Path(..., title="Financial Entity ID", ge=1)):
-    "Endpoint que devuelve una entidad financiera a partir de su ID"
+    """Endpoint que devuelve una entidad financiera a partir de su ID"""
     
     result = _check_financial_entity_exists(financial_id)
 
@@ -214,7 +220,7 @@ def get_financial_entity(financial_id: int= Path(..., title="Financial Entity ID
 
 @app.get("/users/{user_id}/transactions")
 def get_user_transactions(user_id: int = Path(..., title="User ID", ge=1), credentials: HTTPBasicCredentials = Depends(security)):
-    "Endpoint que devuelve todas las transacciones de un usuario"
+    """Endpoint que devuelve todas las transacciones de un usuario"""
     
     email = credentials.username
     password = credentials.password
@@ -240,14 +246,14 @@ def get_user_transactions(user_id: int = Path(..., title="User ID", ge=1), crede
 
 @app.put("/users")
 def edit_user(putUser: PutUser, credentials: HTTPBasicCredentials = Depends(security)):
-    "Endpoint para editar la informacion de un usuario"
+    """Endpoint para editar la informacion de un usuario"""
 
     email = credentials.username
     password = credentials.password
     user_id, _ = _validate_credentials(email, password)
 
-    query = "UPDATE users SET name = %(name)s, isBusiness = %(isBusiness)s  WHERE userId = %(user_id)s"
-    values = {"name": putUser.name, "isBusiness": putUser.isBusiness, "user_id": user_id}
+    query = "UPDATE users SET name = %(name)s WHERE userId = %(user_id)s"
+    values = {"name": putUser.name, "user_id": user_id}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "User updated successfully"}
@@ -298,7 +304,7 @@ def delete_financial_entity(financial_id: int= Path(..., ge=1)):
  
 @app.delete("/keys/{afk_key}")
 def delete_afk_key(afk_key: str = Path(..., title="AFK key", min_length=1), credentials: HTTPBasicCredentials = Depends(security)):
-    "Endpoint para eliminar una clave AFK"
+    """Endpoint para eliminar una clave AFK"""
     
     email = credentials.username
     password = credentials.password

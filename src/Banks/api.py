@@ -29,7 +29,7 @@ def create_account(username: str):
 
 @app.post("/accounts/account")
 def modify_account_balance(postAmount: PostAmount):
-    "Endpoint para modificar el saldo de una cuenta"
+    """Endpoint para modificar el saldo de una cuenta"""
 
     result = _check_account_exists_by_key(postAmount.afk_key)
     
@@ -49,7 +49,7 @@ def modify_account_balance(postAmount: PostAmount):
 
 @app.get("/accounts")
 def get_all_accounts():
-    "Endpoint que devuelve todas las cuentas"
+    """Endpoint que devuelve todas las cuentas"""
     
     query = "SELECT cbu, username, balance, afk_key FROM accounts"
     cursor.execute(query)
@@ -87,7 +87,7 @@ def get_account(cbu: str = Path(..., title="CBU", regex=CBU_REGEX)):
 
 @app.get("/accounts/account/balance")
 def get_balance(afk_key: str = Query(..., title="AFK key", min_length=1)):
-    "Endpoint que devuelve una cuenta a partir de una clave AFK"
+    """Endpoint que devuelve una cuenta a partir de una clave AFK"""
     
     result = _check_account_exists_by_key(afk_key)
     return {"balance": result[2]}
@@ -96,7 +96,7 @@ def get_balance(afk_key: str = Query(..., title="AFK key", min_length=1)):
 
 @app.put("/accounts/account/link")
 def link_afk_key_to_account(putLink: PutLink):
-    "Endpoint para vincular una clave AFK a una cuenta"
+    """Endpoint para vincular una clave AFK a una cuenta"""
     
     _check_account_exists_by_cbu(putLink.cbu)
 
@@ -116,7 +116,7 @@ def link_afk_key_to_account(putLink: PutLink):
 
 @app.put("/accounts/account/unlink")
 def unlink_afk_key_to_account(putUnlink: PutUnlink):
-    "Endpoint para desvincular una clave AFK a una cuenta"
+    """Endpoint para desvincular una clave AFK a una cuenta"""
     
     _check_account_exists_by_key(putUnlink.afk_key)
 

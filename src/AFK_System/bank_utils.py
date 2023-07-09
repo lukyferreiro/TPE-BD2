@@ -13,10 +13,9 @@ def _unlink_key_from_account(apiLink: str, afk_key: str):
     try:
         response = requests.put(url=url, json=body)
         response.raise_for_status() 
+        return response
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
-
-    return response
 
 def _link_key_from_account(apiLink: str, afk_key: str, cbu: str):
     url = f"{apiLink}/accounts/account/link"
@@ -28,13 +27,12 @@ def _link_key_from_account(apiLink: str, afk_key: str, cbu: str):
     try:
         response = requests.put(url, json=body)
         response.raise_for_status() 
+        return response
     except requests.exceptions.RequestException as e:
         # Rollbackeamos si falla el pedido al banco
         _delete_afk_key(afk_key)
         raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
     
-    return response
-
 def _get_balance_from_account(apiLink: str, afk_key: str):
     url = f"{apiLink}/accounts/account/balance"
     params = {'afk_key': afk_key}
@@ -42,10 +40,9 @@ def _get_balance_from_account(apiLink: str, afk_key: str):
     try:
         response = requests.get(url, params=params)
         response.raise_for_status() 
+        return response    
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=response.status_code, detail=response.json()['detail'])
-
-    return response    
 
 def _make_transaction(apiLink_from: str, apiLink_to: str, amount: float, afk_key_from: str, afk_key_to: str, user_id_from: int):
     url_from = f"{apiLink_from}/accounts/account"

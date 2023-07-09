@@ -28,4 +28,3 @@ class PostTransaction(BaseModel):
 
 class PutUser(BaseModel):
     name: str
-    isBusiness: bool
