@@ -44,8 +44,7 @@ sleep 5
     userId INT NOT NULL, \
     financialId VARCHAR(7) NOT NULL CHECK (LENGTH(financialId) = 7), \
     value TEXT NOT NULL, \
-    type TEXT NOT NULL CHECK(type = 'email' OR type = 'cuit' OR type = 'phone_number' OR type = 'random'), \
-    UNIQUE(type, value), \
+    UNIQUE(value), \
     FOREIGN KEY (userId) REFERENCES users (userId) ON DELETE CASCADE, \
     FOREIGN KEY (financialId) REFERENCES financialEntities (financialId) ON DELETE CASCADE \
   );"

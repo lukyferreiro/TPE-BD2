@@ -59,8 +59,8 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
     cant_keys = cursor.fetchone()[0]
 
     if((not isBusiness and cant_keys < 5) or (isBusiness and cant_keys < 20)):
-        query = "INSERT INTO afkKeys (value, type, userId, financialId) VALUES (%(value)s, %(type)s, %(userId)s, %(financialId)s)"
-        values = {"value": afkKey.value, "type": afkKey.keyType, "userId": user_id, "financialId": result_financial_entity[0]}
+        query = "INSERT INTO afkKeys (value, userId, financialId) VALUES (%(value)s, %(userId)s, %(financialId)s)"
+        values = {"value": afkKey.value, "userId": user_id, "financialId": result_financial_entity[0]}
         cursor.execute(query, values)
         connection.commit()
 
@@ -150,7 +150,7 @@ def get_user(user_id: int = Path(..., title="User ID", ge=1)):
     """Endpoint para obtener un usuario a partir de su ID"""
 
     query = """
-        SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value, afkKeys.type
+        SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value
         FROM users LEFT JOIN afkKeys ON users.userId = afkKeys.userId WHERE users.userId = %(user_id)s
     """
     values = {"user_id": user_id}
@@ -172,7 +172,6 @@ def get_user(user_id: int = Path(..., title="User ID", ge=1)):
         if row[4] is not None:
             key = {
                 "value": row[4],
-                "type": row[5]
             }
             user["keys"].append(key)
 
@@ -190,7 +189,7 @@ def get_user(credentials: HTTPBasicCredentials = Depends(security)):
     user_id, _ = _validate_credentials(email, password)
 
     query = """
-        SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value, afkKeys.type
+        SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value
         FROM users LEFT JOIN afkKeys ON users.userId = afkKeys.userId WHERE users.userId = %(user_id)s
     """
     values = {"user_id": user_id}
@@ -212,7 +211,6 @@ def get_user(credentials: HTTPBasicCredentials = Depends(security)):
         if row[4] is not None:
             key = {
                 "value": row[4],
-                "type": row[5]
             }
             user["keys"].append(key)
 
@@ -244,9 +242,8 @@ def get_key(afk_key: str = Query(..., title="AFK key", min_length=1), credential
 
     return {
         "value": result[0],
-        "type": result[1],
-        "userId": result[2],
-        "financialId": result[3]
+        "userId": result[1],
+        "financialId": result[2]
     }
 
 @app.get("/financialEntities/{financial_id}")

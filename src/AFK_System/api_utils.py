@@ -34,7 +34,7 @@ def _check_financial_entity_exists(financial_id: str):
     return result
 
 def _check_afk_key_exists(afk_key: str):
-    query = "SELECT value, type, userId, financialId FROM afkKeys WHERE value = %(afk_key)s"
+    query = "SELECT value, userId, financialId FROM afkKeys WHERE value = %(afk_key)s"
     values = {"afk_key": afk_key}
     cursor = connection.cursor()
     cursor.execute(query, values)
