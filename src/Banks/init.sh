@@ -5,8 +5,7 @@ pip install fastapi uvicorn psycopg2 pymongo pydantic
 #-------------------PostgreSQL Container-------------------
 
 # Define the Docker container and PostgreSQL connection details
-# TODO: Modify for different bank
-POSTGRES_CONTAINER_NAME="bank1-system-postgres"
+POSTGRES_CONTAINER_NAME="bank-system-postgres"
 POSTGRES_USER="postgres"
 POSTGRES_PASSWORD="my_password"
 POSTGRES_DB="my_database"
@@ -23,7 +22,6 @@ else
     -e POSTGRES_USER="$POSTGRES_USER" \
     -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
     -e POSTGRES_DB="$POSTGRES_DB" \
-    # TODO: Modify for different bank
     -p 5434:5432 \
     postgres
   sleep 10

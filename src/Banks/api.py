@@ -3,8 +3,7 @@ from models import PostAmount, PutLink, PutUnlink
 from api_utils import _check_account_exists_by_cbu, _check_account_exists_by_key
 import random
 
-#TODO: modify according to chosen bank
-from bank1_config import connection, cursor
+from postgre_utils import connection, cursor
 
 
 app = FastAPI()
