@@ -189,7 +189,7 @@ def get_user(credentials: HTTPBasicCredentials = Depends(security)):
     user_id, _ = _validate_credentials(email, password)
 
     query = """
-        SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value
+        SELECT users.userId, users.name, users.email, users.isBusiness, afkKeys.value, afkKeys.financialId
         FROM users LEFT JOIN afkKeys ON users.userId = afkKeys.userId WHERE users.userId = %(user_id)s
     """
     values = {"user_id": user_id}
@@ -211,6 +211,7 @@ def get_user(credentials: HTTPBasicCredentials = Depends(security)):
         if row[4] is not None:
             key = {
                 "value": row[4],
+                "financialId": row[5]
             }
             user["keys"].append(key)
 
@@ -225,7 +226,7 @@ def get_balance(afk_key: str = Query(..., title="AFK key", min_length=1), creden
     _validate_credentials(email, password)
 
     result_key = _check_afk_key_exists(afk_key)
-    result_financial_entity = _check_financial_entity_exists(result_key[3])
+    result_financial_entity = _check_financial_entity_exists(result_key[2])
 
     response = _get_balance_from_account(result_financial_entity[2], afk_key)
 
@@ -247,7 +248,7 @@ def get_key(afk_key: str = Query(..., title="AFK key", min_length=1), credential
     }
 
 @app.get("/financialEntities/{financial_id}")
-def get_financial_entity(financial_id: int= Path(..., title="Financial Entity ID", ge=1)):
+def get_financial_entity(financial_id: str= Path(..., title="Financial Entity ID")):
     """Endpoint que devuelve una entidad financiera a partir de su ID"""
     
     result = _check_financial_entity_exists(financial_id)
@@ -274,6 +275,7 @@ def get_user_transactions(credentials: HTTPBasicCredentials = Depends(security))
     if transactions is None:
         raise HTTPException(status_code=404, detail="This user has not made any transactions yet")
 
+    # TODO: with afk_key_to bring some user info
     for transaction in transactions:
         transaction["_id"] = str(transaction["_id"])
 
@@ -347,7 +349,7 @@ def delete_afk_key(afk_key: str = Query(..., title="AFK key", min_length=1), cre
     password = credentials.password
     user_id, _ = _validate_credentials(email, password)
     result_key = _check_afk_key_exists(afk_key)
-    result_financial_entity = _check_financial_entity_exists(result_key[3])
+    result_financial_entity = _check_financial_entity_exists(result_key[2])
 
     # Chequeamos que la clave le pertenezca al usuario que se autentica
     _check_relation_user_key(user_id, afk_key)

@@ -6,8 +6,8 @@ CBU_REGEX = r"^[0-9]{22}$"
 
 class PostUser(BaseModel):
     name: str
-    password: str
     email: EmailStr
+    password: str
     isBusiness: bool
 
 class PostFinancialEntity(BaseModel):

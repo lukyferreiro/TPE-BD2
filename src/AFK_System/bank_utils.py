@@ -68,8 +68,8 @@ def _make_transaction(apiLink_from: str, apiLink_to: str, amount: float, afk_key
             formatted_datetime = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
             transaction_data = {
-                "to": afk_key_to,
-                "from": afk_key_from,
+                "afk_key_to": afk_key_to,
+                "afk_key_from": afk_key_from,
                 "amount": amount,
                 "date": formatted_datetime,
                 "userId_from": user_id_from

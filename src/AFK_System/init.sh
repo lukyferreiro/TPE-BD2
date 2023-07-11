@@ -49,25 +49,20 @@ sleep 5
     FOREIGN KEY (financialId) REFERENCES financialEntities (financialId) ON DELETE CASCADE \
   );"
 
-  # TODO: Modify according to your codespace
-  API_LINK_1="https://lukyferreiro-ideal-acorn-7w67j4x4v4xhrrjr-8001.preview.app.github.dev"
+  # TODO: Modify according to your codespace. Remove last "/"
+  # Example: "https://rgomezkiss-super-winner-4rjgpwgwg65cj57r-8001.preview.app.github.dev"
+  API_LINK_1="https://rgomezkiss-super-winner-4rjgpwgwg65cj57r-8001.preview.app.github.dev"
   SQL_INSERT_FINANCIAL_ENTITY_1="INSERT INTO financialEntities (financialId, name, apiLink) VALUES ('1111111', 'Santander', '$API_LINK_1')"
 
-  API_LINK_2="..."
+  API_LINK_2="https://rgomezkiss-refactored-spork-x459gv9vv65cv4xr-8001.preview.app.github.dev"
   SQL_INSERT_FINANCIAL_ENTITY_2="INSERT INTO financialEntities (financialId, name, apiLink) VALUES ('2222222', 'BBVA', '$API_LINK_2')"
-
-  API_LINK_3="..."
-  SQL_INSERT_FINANCIAL_ENTITY_3="INSERT INTO financialEntities (financialId, name, apiLink) VALUES ('3333333', 'Galicia', '$API_LINK_3')"
-
 
   # Execute the SQL statements inside the container
   docker exec -it "$POSTGRES_CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
     -c "$SQL_CREATE_TABLE_1" \
     -c "$SQL_CREATE_TABLE_2" \
-    -c "$SQL_CREATE_TABLE_3" \
     -c "$SQL_INSERT_FINANCIAL_ENTITY_1" \
     -c "$SQL_INSERT_FINANCIAL_ENTITY_2" \
-    -c "$SQL_INSERT_FINANCIAL_ENTITY_3" 
 
 #-------------------MongoDB Container-------------------
 MONGO_CONTAINER_NAME="afk-system-mongo"

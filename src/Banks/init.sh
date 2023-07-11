@@ -37,12 +37,12 @@ sleep 5
     AFK_key TEXT UNIQUE  \
   );"
 
-  SQL_INSERT_ACCOUNT_1="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000000', 'Lucas', 1500, null)"
-  SQL_INSERT_ACCOUNT_2="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000001', 'Roman', 783, null)"
-  SQL_INSERT_ACCOUNT_3="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000002', 'Tomas', 1000, null)"
-#  SQL_INSERT_ACCOUNT_4="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000003', 'Cecilia', 19462, null)"
- # SQL_INSERT_ACCOUNT_5="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000004', 'Ariel', 2000, null)"
-  #SQL_INSERT_ACCOUNT_6="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000005', 'Roberto', 0, null)"
+ # SQL_INSERT_ACCOUNT_1="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000000', 'Lucas', 1500, null)"
+  #SQL_INSERT_ACCOUNT_2="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000001', 'Roman', 783, null)"
+  #SQL_INSERT_ACCOUNT_3="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('1111111000000000000002', 'Tomas', 1000, null)"
+  SQL_INSERT_ACCOUNT_4="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('2222222000000000000000', 'Cecilia', 19462, null)"
+  SQL_INSERT_ACCOUNT_5="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('2222222000000000000001', 'Ariel', 2000, null)"
+  SQL_INSERT_ACCOUNT_6="INSERT INTO accounts (cbu, username, balance, AFK_key) VALUES ('2222222000000000000002', 'Roberto', 0, null)"
 
   # Execute the SQL statements inside the container
   docker exec -it "$POSTGRES_CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \

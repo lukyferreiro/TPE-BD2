@@ -7,7 +7,7 @@
 
 # Introducción
 
-En este TPE se implemento AFK System: un sistema de pago electronico basado en un hibrido de reconocidos sistemas de Argentina y Brasil.
+En este TPE se implemento AFK System: un sistema de pago electronico basado en un híbrido de reconocidos sistemas de Argentina y Brasil.
 Para ello se implemento una API utilizando FastApi para modelar los endpoints de nuestro sistema.
 Nuestro sistema cuenta con:
 - Una base de datos PosgreSQL para almacenar y consultar los usuarios, claves AFK y entidades financieras.
@@ -17,7 +17,7 @@ La idea principal es que un usuario pueda asociar un CBU de cualquier entidad fi
 podra transferir dinero a otro usuario (de cualquier entidad financiera) utilizando unicamente la clave AFK.
 
 Para realizar pruebas tambien se modelo una API bancaria para representar aquella a la cual nuestro
-sistema se conectaria para consultar saldos, transferir o descontar dinero o asociar al CBU una clave AFK.
+sistema se conectaría para consultar saldos, transferir o descontar dinero o asociar al CBU una clave AFK.
 
 # Requisitos
 
