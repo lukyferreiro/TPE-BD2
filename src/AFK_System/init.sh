@@ -65,7 +65,7 @@ sleep 5
     -c "$SQL_CREATE_TABLE_3" \
     -c "$SQL_INSERT_FINANCIAL_ENTITY_1" \
     -c "$SQL_INSERT_FINANCIAL_ENTITY_2" \
-    c "$SQL_INSERT_FINANCIAL_ENTITY_3" 
+    -c "$SQL_INSERT_FINANCIAL_ENTITY_3" 
 
 #-------------------MongoDB Container-------------------
 MONGO_CONTAINER_NAME="afk-system-mongo"

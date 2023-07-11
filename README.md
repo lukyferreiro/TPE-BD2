@@ -81,6 +81,8 @@ Esto levantara la API de nuestro sistema que estara conectada a ambas bases de d
 Para poder simular varias APIs bancarias, se debera generar un nuevo GitHub Codespace independiente para cada API bancaria.
 En el mismo correremos unicamente la API bancaria repitiendo los pasos descritos en "1. Levantar API de una entidad financiera".
 
-Tener en cuenta que se deberan agregar tantos API_LINK_N como N API bancarias tengamos levantadas en GitHub Codespace independientes.
+Tener en cuenta que se deberan agregar tantos API_LINK_N como N APIs bancarias tengamos levantadas en GitHub Codespaces independientes.
+
+A continuación se muestra un ejemplo:
 
 ![Explicación de como inicializar los API Links](./images/api_links.png)
