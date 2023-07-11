@@ -30,7 +30,7 @@ def _check_financial_entity_exists(financial_id: str):
     cursor.execute(query, values)
     result = cursor.fetchone()
     if result is None:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=404, detail="Financial entity not found")
     return result
 
 def _check_afk_key_exists(afk_key: str):
@@ -40,8 +40,17 @@ def _check_afk_key_exists(afk_key: str):
     cursor.execute(query, values)
     result = cursor.fetchone()
     if result is None:
-        raise HTTPException(status_code=404, detail="Key not found")
+        raise HTTPException(status_code=404, detail="AFK key not found")
     return result
+
+def _check_afk_key_not_exists(afk_key: str):
+    query = "SELECT COUNT(*) FROM afkKeys WHERE value = %(afk_key)s"
+    values = {"afk_key": afk_key}
+    cursor = connection.cursor()
+    cursor.execute(query, values)
+    result = cursor.fetchone()[0]
+    if result != 0:
+        raise HTTPException(status_code=409, detail="AFK key already used")
 
 def _check_relation_user_key(user_id: int, afk_key: str):
     query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s AND value = %(afk_key)s"
@@ -49,7 +58,6 @@ def _check_relation_user_key(user_id: int, afk_key: str):
     cursor = connection.cursor()
     cursor.execute(query, values)
     result = cursor.fetchone()[0]
-
     if result == 0:
         raise HTTPException(status_code=400, detail="Invalid operation")
 
@@ -75,7 +83,7 @@ def _validate_credentials(email: str, password: str):
     if result_user[1] == hashed_password:
         return result_user[0], result_user[2]
 
-    raise HTTPException(status_code=401, detail="Invalid credentials")
+    raise HTTPException(status_code=403, detail="Forbidden: Invalid credentials")
 
 def _delete_user_from_id(user_id: int):
     query = "DELETE FROM users WHERE userId = %(user_id)s"

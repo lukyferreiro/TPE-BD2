@@ -4,7 +4,7 @@ from models import PostUser, PostFinancialEntity, PostAfkKey, PostTransaction, P
 from postgre_utils import connection, cursor
 from mongo_utils import collection
 from pymongo.errors import PyMongoError
-from api_utils import _check_user_exists, _check_user_exists_by_email, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _delete_user_from_id, _delete_afk_key
+from api_utils import _check_user_exists, _check_user_exists_by_email, _check_afk_key_not_exists, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _delete_user_from_id, _delete_afk_key
 from bank_utils import _unlink_key_from_account, _link_key_from_account, _get_balance_from_account, _make_transaction
 import hashlib
 
@@ -46,6 +46,8 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
     """Endpoint para registrar una nueva clave"""
 
     result_financial_entity = _check_financial_entity_exists(afkKey.cbu[:7])
+
+    _check_afk_key_not_exists(afkKey.value)
 
     email = credentials.username
     password = credentials.password
