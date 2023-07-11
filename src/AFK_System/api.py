@@ -35,6 +35,15 @@ def create_user(user: PostUser):
 
 @app.post("/financialEntities")
 def create_financial_entity(financialEntity: PostFinancialEntity):
+
+    query = "SELECT COUNT(*) FROM financialEntities WHERE financialId = %(financialId)s"
+    values = {"financialId": financialEntity.financialId}
+    cursor.execute(query, values)
+    result = cursor.fetchone()[0]
+
+    if result != 0:
+        raise HTTPException(status_code=409, detail="Financial entity already registered")
+
     query = "INSERT INTO financialEntities (financialId, name, apiLink) VALUES (%(financialId)s, %(name)s, %(apiLink)s)"
     values = {"financialId": financialEntity.financialId, "name": financialEntity.name ,"apiLink": financialEntity.apiLink}
     cursor.execute(query, values)

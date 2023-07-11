@@ -49,12 +49,14 @@ sleep 5
   );"
 
   # TODO: Modify according to your codespace. Remove last "/"
-  # Example: "https://rgomezkiss-super-winner-4rjgpwgwg65cj57r-8001.preview.app.github.dev"
   API_LINK_1="https://lukyferreiro-potential-cod-qgjg5w6qv7fpqj-8001.preview.app.github.dev"
   SQL_INSERT_FINANCIAL_ENTITY_1="INSERT INTO financialEntities (financialId, name, apiLink) VALUES ('1111111', 'Santander', '$API_LINK_1')"
 
   API_LINK_2="..."
   SQL_INSERT_FINANCIAL_ENTITY_2="INSERT INTO financialEntities (financialId, name, apiLink) VALUES ('2222222', 'BBVA', '$API_LINK_2')"
+
+  API_LINK_3="..."
+  SQL_INSERT_FINANCIAL_ENTITY_2="INSERT INTO financialEntities (financialId, name, apiLink) VALUES ('3333333', 'Galicia', '$API_LINK_3')"
 
   # Execute the SQL statements inside the container
   docker exec -it "$POSTGRES_CONTAINER_NAME" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
@@ -63,6 +65,7 @@ sleep 5
     -c "$SQL_CREATE_TABLE_3" \
     -c "$SQL_INSERT_FINANCIAL_ENTITY_1" \
     -c "$SQL_INSERT_FINANCIAL_ENTITY_2" \
+    c "$SQL_INSERT_FINANCIAL_ENTITY_3" 
 
 #-------------------MongoDB Container-------------------
 MONGO_CONTAINER_NAME="afk-system-mongo"

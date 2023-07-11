@@ -18,7 +18,8 @@ Cabe destacar que un CBU esta compuesto de 22 numeros, y a modo de simplificacio
 ID de la entidad financiera.
 
 Para realizar pruebas tambien se modelo una API bancaria en FastApi para representar aquella a la cual nuestro
-sistema se conectaría para consultar saldos, transferir o descontar dinero o asociar una clave AFK a un CBU.
+sistema se conectaría para consultar saldos, transferir o descontar dinero o asociar una clave AFK a un CBU. 
+Por simplificacion del las pruebas, todas las APIs bancarias utilizaran una base de datos PosgreSQL
 
 # Requisitos
 
@@ -27,7 +28,9 @@ sistema se conectaría para consultar saldos, transferir o descontar dinero o as
 
 # Funcionamiento
 
-## 1. Levantar API de las entidades
+Todos los siguientes pasos seran explicados para realizarse en un entorno de GitHub Codespaces.
+
+## 1. Levantar API de una entidad financiera
 
 Posicionado en la carpeta /src/Banks se debe ejecutar:
 
@@ -44,9 +47,15 @@ Luego se debe ejecutar:
 
 Esto levantara la API del banco que estara conectada a la base de datos montada en el contenedor de Docker anterior.
 
+![Documentación en Swagger de la API del banco](./images/api_banks.png)
+
 ### IMPORTANTE
-Ahora se debe copiar la URL base de esta API (es decir, la que pertenece en la url del navegador) y copiarla en la variable
-API_LINK_1 del archivo /src/AFK_Sytem/init.sh
+1. Copiar la URL base de esta API (es decir, la que aparece en la url del navegador al correr el ./run.sh) y
+copiarla en la variable API_LINK_1 del archivo /src/AFK_Sytem/init.sh
+
+2. Verificar que los puertos respectivos de las API de los bancos se encuentren publicos.
+
+![Visualización de los puertos publicos](./images/ports.png)
 
 # 2. Levantar API de AFK system
 
@@ -64,7 +73,12 @@ Luego se debe ejecutar:
 ```
 Esto levantara la API de nuestro sistema que estara conectada a ambas bases de datos montadas en los contenedores.
 
-# 3. Verificar puertos
-Verificar que los puertos respectivos de las API de los bancos se encuentren publicos.
+![Documentación en Swagger de la API del AFK system](./images/api_afk_system.png)
 
-# 4.
+# Funcionamiento con multiples bancos
+
+Para poder simular varias APIs bancarias, se debera generar un nuevo GitHub Codespace independiente en el cual correremos
+unicamente la API bancaria y repitiendo unicamente los pasos '1. Levantar API de una entidad financiera' y teniendo en cuenta
+que se deberan agregar tantos API_LINK_N como N cantidad de API bancarias levantadas en GitHub Codespace independientes.
+
+![Explicación de como inicializar los API Links](./images/api_links.png)
