@@ -58,7 +58,7 @@ copiarla en la variable API_LINK_1 del archivo /src/AFK_Sytem/init.sh
 
 ![Visualización de los puertos publicos](./images/ports.png)
 
-# 2. Levantar API de AFK system
+## 2. Levantar API de AFK system
 
 Posicionado en la carpeta /src/AFK_Sytem se debe ejecutar:
 
