@@ -14,12 +14,13 @@ Para ello se implemento una API utilizando FastApi para modelar los endpoints de
 
 La idea principal es que un usuario pueda asociar un CBU de cualquier entidad financiera a una clave AFK. De esta forma, un usuario
 podra transferir dinero a otro usuario (de cualquier entidad financiera) utilizando unicamente la clave AFK.
+
 Cabe destacar que un CBU esta compuesto de 22 numeros, y a modo de simplificacion del sistema, los primeros 7 representaran el
 ID de la entidad financiera.
 
 Para realizar pruebas tambien se modelo una API bancaria en FastApi para representar aquella a la cual nuestro
 sistema se conectaría para consultar saldos, transferir o descontar dinero o asociar una clave AFK a un CBU. 
-Por simplificacion del las pruebas, todas las APIs bancarias utilizaran una base de datos PosgreSQL
+Por simplificacion de las pruebas, todas las APIs bancarias utilizaran una base de datos PosgreSQL
 
 # Requisitos
 
@@ -77,8 +78,9 @@ Esto levantara la API de nuestro sistema que estara conectada a ambas bases de d
 
 # Funcionamiento con multiples bancos
 
-Para poder simular varias APIs bancarias, se debera generar un nuevo GitHub Codespace independiente en el cual correremos
-unicamente la API bancaria y repitiendo unicamente los pasos '1. Levantar API de una entidad financiera' y teniendo en cuenta
-que se deberan agregar tantos API_LINK_N como N cantidad de API bancarias levantadas en GitHub Codespace independientes.
+Para poder simular varias APIs bancarias, se debera generar un nuevo GitHub Codespace independiente para cada API bancaria.
+En el mismo correremos unicamente la API bancaria repitiendo los pasos descritos en "1. Levantar API de una entidad financiera".
+
+Tener en cuenta que se deberan agregar tantos API_LINK_N como N API bancarias tengamos levantadas en GitHub Codespace independientes.
 
 ![Explicación de como inicializar los API Links](./images/api_links.png)
