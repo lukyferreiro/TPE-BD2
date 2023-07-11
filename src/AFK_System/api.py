@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Path, Query, HTTPException, Depends
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from models import PostUser, PostAfkKey, PostTransaction, PutUser
+from models import PostUser, PostFinancialEntity, PostAfkKey, PostTransaction, PutUser, PutFinancialEntity
 from postgre_utils import connection, cursor
 from mongo_utils import collection
+from pymongo.errors import PyMongoError
 from api_utils import _check_user_exists, _check_user_exists_by_email, _check_financial_entity_exists, _check_afk_key_exists, _check_relation_user_key, _get_api_link_from_afk_key, _validate_credentials, _delete_user_from_id, _delete_afk_key
 from bank_utils import _unlink_key_from_account, _link_key_from_account, _get_balance_from_account, _make_transaction
 import hashlib
@@ -31,16 +32,14 @@ def create_user(user: PostUser):
     connection.commit()
     return {"message": "User created successfully"}
 
-"""
+
 @app.post("/financialEntities")
 def create_financial_entity(financialEntity: PostFinancialEntity):
-    query = "INSERT INTO financialEntities (financialId, name, apiLink) VALUES (%(id)s, %(name)s, %(apiLink)s)"
-    values = {"id": financialEntity.financialId, "name": financialEntity.name ,"apiLink": financialEntity.apiLink}
+    query = "INSERT INTO financialEntities (financialId, name, apiLink) VALUES (%(financialId)s, %(name)s, %(apiLink)s)"
+    values = {"financialId": financialEntity.financialId, "name": financialEntity.name ,"apiLink": financialEntity.apiLink}
     cursor.execute(query, values)
     connection.commit()
     return {"message": "Financial entity created successfully"}
-"""
-
 
 @app.post("/keys")
 def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(security)):
@@ -54,7 +53,6 @@ def create_key(afkKey: PostAfkKey, credentials: HTTPBasicCredentials = Depends(s
 
     query = "SELECT COUNT(*) FROM afkKeys WHERE userId = %(user_id)s"
     values = {"user_id": user_id}
-
     cursor.execute(query, values)
     cant_keys = cursor.fetchone()[0]
 
@@ -96,7 +94,6 @@ def create_transaction(postTransaction: PostTransaction, credentials: HTTPBasicC
                       user_id_from)
 
     return {"message": "Transaction completed successfully"}
-
 
 #-----------------------------GET-----------------------------
 
@@ -254,7 +251,7 @@ def get_financial_entity(financial_id: str= Path(..., title="Financial Entity ID
     result = _check_financial_entity_exists(financial_id)
 
     return {
-        "id": result[0],
+        "financialId": result[0],
         "name": result[1],
         "apiLink": result[2]
     }
@@ -269,8 +266,8 @@ def get_user_transactions(credentials: HTTPBasicCredentials = Depends(security))
 
     try:
         transactions = list(collection.find({"userId_from": user_id_credentials}))
-    except pymongo.errors.PyMongoError as e:
-        raise HTTPException(status_code=500, detail="Could not retrieve transactions. Try again later")
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=f"Could not retrieve transactions ({e}). Try again later")
 
     if transactions is None:
         raise HTTPException(status_code=404, detail="This user has not made any transactions yet")
@@ -296,6 +293,18 @@ def edit_user(putUser: PutUser, credentials: HTTPBasicCredentials = Depends(secu
     cursor.execute(query, values)
     connection.commit()
     return {"message": "User updated successfully"}
+
+@app.put("/financialEntities/{financialId}")
+def edit_user(putFinancialEntity: PutFinancialEntity, financialId: str = Path(..., title="Financial entity ID", min_length=7, max_length=7)):
+    """Endpoint para editar la informacion de una entidad financiera"""
+
+    _check_financial_entity_exists(financialId)
+
+    query = "UPDATE financialEntities SET name = %(name)s, apiLink = %(apiLink)s WHERE financialId = %(financialId)s"
+    values = {"name": putFinancialEntity.name,  "apiLink": putFinancialEntity.apiLink, "financialId": financialId}
+    cursor.execute(query, values)
+    connection.commit()
+    return {"message": "Financial entity updated successfully"}
 
 #-----------------------------DELETE-----------------------------
 

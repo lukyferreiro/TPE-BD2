@@ -26,3 +26,7 @@ class PostTransaction(BaseModel):
 
 class PutUser(BaseModel):
     name: str
+
+class PutFinancialEntity(BaseModel):
+    name: str
+    apiLink: str

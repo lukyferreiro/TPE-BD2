@@ -43,8 +43,7 @@ sleep 5
   SQL_CREATE_TABLE_3="CREATE TABLE IF NOT EXISTS afkKeys ( \
     userId INT NOT NULL, \
     financialId VARCHAR(7) NOT NULL CHECK (LENGTH(financialId) = 7), \
-    value TEXT NOT NULL, \
-    UNIQUE(value), \
+    value TEXT NOT NULL UNIQUE, \
     FOREIGN KEY (userId) REFERENCES users (userId) ON DELETE CASCADE, \
     FOREIGN KEY (financialId) REFERENCES financialEntities (financialId) ON DELETE CASCADE \
   );"
