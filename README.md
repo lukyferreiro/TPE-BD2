@@ -8,7 +8,9 @@
 # Introducción
 
 En este TPE se implemento 'AFK System': un sistema de pago electronico basado en un híbrido de reconocidos sistemas de Argentina y Brasil.
-Para ello se implemento una API utilizando FastApi para modelar los endpoints de nuestro sistema, el cual cuenta con:
+Para ello se implemento una API con FastApi.
+
+Nuestro sistema cuenta con:
 - Una base de datos PosgreSQL para almacenar y consultar los usuarios, claves AFK y entidades financieras.
 - Una base de datos MongoDB para almacenar las transacciones entre los usuarios.
 

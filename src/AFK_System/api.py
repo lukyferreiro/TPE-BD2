@@ -351,7 +351,7 @@ def delete_user(user_id: int= Path(..., ge=1)):
 
 """
 @app.delete("/financialEntities/{financial_id}")
-def delete_financial_entity(financial_id: int= Path(..., ge=1)):
+def delete_financial_entity(financial_Id: str = Path(..., title="Financial entity ID", min_length=7, max_length=7)):
     _check_financial_entity_exists(financial_id)
 
     query = "DELETE FROM financialEntities WHERE financialId = %(financial_id)s"

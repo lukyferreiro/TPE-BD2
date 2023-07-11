@@ -91,7 +91,7 @@ def _delete_user_from_id(user_id: int):
     cursor.execute(query, values)
     connection.commit()
 
-def _delete_afk_key(afk_key: int):
+def _delete_afk_key(afk_key: str):
     query = "DELETE FROM afkKeys WHERE value = %(afk_key)s"
     values = {"afk_key": afk_key}
     cursor.execute(query, values)
